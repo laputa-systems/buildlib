@@ -1,0 +1,82 @@
+[project]
+name = "laputa-buildlib"
+version = "0.1.0"
+description = "Shared lock, release, and binary-inspection helpers for the laputa-systems build repositories"
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.15"
+dependencies = []
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.15",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Repository = "https://github.com/laputa-systems/buildlib"
+
+[build-system]
+requires = ["uv_build>=0.11.25,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "buildlib"
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.4",
+    "ty==0.0.101",
+    "uv==0.13.7",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+minversion = "9"
+
+[tool.ty.environment]
+root = ["src", "tests"]
+python-version = "3.15"
+
+[tool.ty.src]
+include = ["src", "tests"]
+
+[tool.ruff]
+target-version = "py315"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "F",
+  "E",
+  "W",
+  "I",
+  "N",
+  "UP",
+  "B",
+  "A",
+  "SIM",
+  "RUF",
+  "PT",
+  "RET",
+  "PIE",
+  "C4",
+  "T20",
+  "PERF",
+  "FURB",
+]
+ignore = ["E501", "SIM105", "RET505", "SIM108"]
+
+[tool.uv]
+environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
+
+[[tool.uv.index]]
+url = "https://pypi.17166969.xyz/current/simple/"
+default = true
