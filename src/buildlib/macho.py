@@ -293,16 +293,27 @@ def signature_metadata_ranges(path: Path) -> list[tuple[int, int]]:
     anything does; the LC_UUID is regenerated per link. Two builds of the same
     source can differ in exactly these bytes and nothing else, which is a very
     different statement from "the builds differ" — this is what lets the
-    reproducibility report tell them apart.
+    reproducibility report tell them apart. Signatures must occupy the file tail
+    after the header and load commands; malformed ranges raise MachOError.
     """
+    endian, is_64, fields = _header_fields(path)
+    commands_end = struct.calcsize(_HEADER_FMT_64 if is_64 else _HEADER_FMT) + fields[5]
+    file_size = Path(path).stat().st_size
     ranges: list[tuple[int, int]] = []
+    signature_seen = False
     for command in load_commands(path):
         if command.cmd == LC_UUID:
+            if len(command.payload) != 16:
+                raise MachOError(f"{path}: LC_UUID must contain exactly sixteen UUID bytes")
             ranges.append((command.offset + 8, 16))
         elif command.cmd == LC_CODE_SIGNATURE:
-            data_offset, data_size = struct.unpack_from("<II", command.payload, 0)
-            if data_size:
-                ranges.append((data_offset, data_size))
+            if signature_seen or len(command.payload) != 8:
+                raise MachOError(f"{path}: malformed or duplicate LC_CODE_SIGNATURE")
+            signature_seen = True
+            data_offset, data_size = struct.unpack_from(f"{endian}II", command.payload, 0)
+            if data_offset < commands_end or not data_size or data_offset + data_size != file_size:
+                raise MachOError(f"{path}: code signature must follow load commands and occupy the file tail")
+            ranges.append((data_offset, data_size))
     return ranges
 
 
@@ -310,9 +321,9 @@ def normalized_bytes(path: Path) -> bytes:
     """The image with its UUID and signature ranges zeroed."""
     raw = bytearray(Path(path).read_bytes())
     for offset, size in signature_metadata_ranges(path):
-        if 0 <= offset < len(raw):
-            end = min(offset + size, len(raw))
-            raw[offset:end] = b"\x00" * (end - offset)
+        if offset < 0 or offset + size > len(raw):
+            raise MachOError(f"{path}: normalization range outside file")
+        raw[offset:offset + size] = b"\x00" * size
     return bytes(raw)
 
 

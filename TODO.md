@@ -12,14 +12,6 @@ Next: 5
 - **Effort:** M
 
 
-### BLIB-3 · P2 · Malformed Mach-O normalization metadata hides file differences
-
-- **Area:** Mach-O reproducibility
-- **Where:** `src/buildlib/macho.py:172-196,288-315`; `tests/test_macho.py:93-125,142-151`
-- **Problem:** Load-command parsing validates the generic eight-byte envelope, but normalization assumes every LC_UUID contains sixteen payload bytes and trusts LC_CODE_SIGNATURE ranges. Proven on Python 3.15.2 with thin little-endian arm64 byte fixtures: an LC_UUID with cmdsize=8 and no payload causes the following sixteen bytes outside that command to be zeroed. Two files with different trailers then normalize identically. A signature range at offset 1 with size 0xffffffff similarly erases almost the whole file because normalized_bytes clips the range to EOF. Malformed artifacts therefore produce false reproducibility equality instead of an error. This demonstrates a local verification defect, not an observed compromised release.
-- **Recommendation:** Validate command-specific payload lengths and all normalization ranges before changing bytes. Keep UUID bytes inside their command; reject signature ranges outside the file or overlapping the header/load-command area, and enforce the signature-layout preconditions needed to classify bytes as metadata. Do not clip malformed ranges. Raise MachOError and add regressions for both witnesses, valid metadata-only differences, and differences outside metadata that must remain observable.
-- **Fix with:** os-boundaries
-- **Effort:** M
 
 
 

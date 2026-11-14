@@ -182,3 +182,30 @@ def test_find_machos_propagates_permission_errors(tmp_path: Path, unreadable: st
     finally:
         target.chmod(mode)
     assert macho.find_machos(tmp_path) == [other, image]
+
+
+@pytest.mark.parametrize(
+    ("commands", "trailer"),
+    [
+        ([macho_command(macho.LC_UUID, b"")], b"a" * 16),
+        ([signature_command(1, 0xffffffff)], b"code"),
+        ([macho_command(macho.LC_CODE_SIGNATURE, b"")], b"code"),
+        ([signature_command(32, 16)], b"code" * 4),
+        ([signature_command(48, 8)], b"s" * 16),
+        ([signature_command(64, 8), signature_command(64, 8)], b"s" * 8),
+    ],
+)
+def test_normalization_rejects_malformed_metadata(
+    tmp_path: Path, commands: list[bytes], trailer: bytes
+) -> None:
+    path = tmp_path / "malformed"
+    path.write_bytes(macho_image(commands, trailer=trailer))
+    with pytest.raises(macho.MachOError):
+        macho.normalized_bytes(path)
+
+
+def test_signature_normalization_preserves_preceding_content(tmp_path: Path) -> None:
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.write_bytes(signed(bytes(16), b"S" * 16))
+    second.write_bytes(signed(bytes(16), b"S" * 16).replace(b"code", b"diff"))
+    assert macho.normalized_bytes(first) != macho.normalized_bytes(second)
