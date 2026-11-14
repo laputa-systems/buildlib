@@ -128,6 +128,7 @@ def make_tree(root: Path, *, reverse: bool = False) -> Path:
         path.chmod(mode)
     (root / "lib" / "libx.so.1").symlink_to("libx.so")
     (root / "empty").mkdir()
+    (root / "linked-lib").symlink_to("lib", target_is_directory=True)
     return root
 
 
@@ -155,6 +156,8 @@ def test_archive_round_trip_normalizes_metadata(tmp_path: Path) -> None:
         assert by_name["python/lib/libx.so"].mode == 0o644
         assert by_name["python/lib/a-b"].mode == 0o644
         assert by_name["python/share/doc/LICENSE"].mode == 0o644
+        assert by_name["python/linked-lib"].issym()
+        assert "python/linked-lib/libx.so" not in by_name
         link = by_name["python/lib/libx.so.1"]
         assert link.issym()
         assert link.linkname == "libx.so"
@@ -299,3 +302,21 @@ def test_sums_reject_nested_or_unlistable_assets(tmp_path: Path) -> None:
         release.write_sha256sums(empty)
     with pytest.raises(release.ReleaseError, match="cannot read"):
         release.verify_sha256sums(empty)
+
+
+def test_archive_rejects_unreadable_directory_without_replacing_archive(tmp_path: Path) -> None:
+    tree = make_tree(tmp_path / "tree")
+    destination = tmp_path / "p.tar.xz"
+    release.create_archive(tree, destination, mtime=EPOCH)
+    original = destination.read_bytes()
+    directory = tree / "lib"
+    directory.chmod(0)
+    try:
+        with pytest.raises(PermissionError):
+            release.create_archive(tree, destination, mtime=EPOCH)
+        assert destination.read_bytes() == original
+        assert sorted(path.name for path in tmp_path.iterdir()) == ["p.tar.xz", "tree"]
+    finally:
+        directory.chmod(0o755)
+    release.create_archive(tree, destination, mtime=EPOCH)
+    assert destination.read_bytes() == original

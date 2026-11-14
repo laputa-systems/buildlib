@@ -8,6 +8,7 @@ rejected.
 
 from __future__ import annotations
 
+import stat
 import struct
 from dataclasses import dataclass
 from pathlib import Path
@@ -308,8 +309,16 @@ def normalized_bytes(path: Path) -> bytes:
 
 def find_elfs(root: Path) -> list[Path]:
     """Real (non-symlink) ELF images under a tree, sorted."""
-    return sorted(
-        path
-        for path in Path(root).rglob("*")
-        if path.is_file() and not path.is_symlink() and is_elf(path)
-    )
+    found = []
+    directories = [Path(root)]
+    while directories:
+        for path in directories.pop().iterdir():
+            mode = path.lstat().st_mode
+            if stat.S_ISDIR(mode):
+                directories.append(path)
+            elif stat.S_ISREG(mode):
+                with path.open("rb") as handle:
+                    magic = handle.read(4)
+                if magic == b"\x7fELF":
+                    found.append(path)
+    return sorted(found)

@@ -161,3 +161,24 @@ def test_signature_status_reports_codesign_result(tmp_path: Path, monkeypatch: p
     assert macho.signature_status(image) == (True, "valid on disk")
     fake_codesign(bin_dir, 1, "code object is not signed at all")
     assert macho.signature_status(image) == (False, "code object is not signed at all")
+
+
+@pytest.mark.parametrize("unreadable", ["directory", "file"])
+def test_find_machos_propagates_permission_errors(tmp_path: Path, unreadable: str) -> None:
+    directory = tmp_path / "nested"
+    directory.mkdir()
+    image = directory / "image"
+    image.write_bytes(sample())
+    other = tmp_path / "a-image"
+    other.write_bytes(image.read_bytes())
+    (tmp_path / "linked-directory").symlink_to(directory, target_is_directory=True)
+    assert macho.find_machos(tmp_path) == [other, image]
+    target = directory if unreadable == "directory" else image
+    mode = target.stat().st_mode
+    target.chmod(0)
+    try:
+        with pytest.raises(PermissionError):
+            macho.find_machos(tmp_path)
+    finally:
+        target.chmod(mode)
+    assert macho.find_machos(tmp_path) == [other, image]

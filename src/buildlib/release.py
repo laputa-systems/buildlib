@@ -154,13 +154,24 @@ def create_archive(source: Path | str, archive: Path | str, *, mtime: int, prefi
     The archive is written atomically; identical trees and arguments give identical bytes.
     """
     source, archive = Path(source), Path(archive)
-    if source.is_symlink() or not source.is_dir():
+    try:
+        source_mode = source.lstat().st_mode
+    except FileNotFoundError:
+        raise ReleaseError(f"archive source is not a directory: {source}") from None
+    if not stat.S_ISDIR(source_mode):
         raise ReleaseError(f"archive source is not a directory: {source}")
     if type(mtime) is not int or mtime < 0:
         raise ReleaseError(f"mtime must be a nonnegative integer: {mtime!r}")
     if prefix is not None and (not prefix or prefix.startswith("/") or ".." in prefix.split("/")):
         raise ReleaseError(f"invalid archive prefix: {prefix!r}")
-    members = sorted(source.rglob("*"), key=lambda path: path.relative_to(source).as_posix())
+    members = []
+    directories = [source]
+    while directories:
+        for path in directories.pop().iterdir():
+            members.append(path)
+            if stat.S_ISDIR(path.lstat().st_mode):
+                directories.append(path)
+    members.sort(key=lambda path: path.relative_to(source).as_posix())
     with (
         _atomic.atomic_file(archive) as handle,
         tarfile.open(fileobj=handle, mode="w:xz", format=tarfile.PAX_FORMAT, preset=_XZ_PRESET) as tar,

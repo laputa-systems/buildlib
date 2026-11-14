@@ -12,6 +12,7 @@ Fat/universal images are rejected: build repositories ship a single thin slice.
 
 from __future__ import annotations
 
+import stat
 import struct
 import subprocess
 from dataclasses import dataclass
@@ -317,7 +318,16 @@ def normalized_bytes(path: Path) -> bytes:
 
 def find_machos(root: Path) -> list[Path]:
     """Real (non-symlink) Mach-O images under an installed tree."""
-    return sorted(
-        path for path in Path(root).rglob("*")
-        if path.is_file() and not path.is_symlink() and is_macho(path)
-    )
+    found = []
+    directories = [Path(root)]
+    while directories:
+        for path in directories.pop().iterdir():
+            mode = path.lstat().st_mode
+            if stat.S_ISDIR(mode):
+                directories.append(path)
+            elif stat.S_ISREG(mode):
+                with path.open("rb") as handle:
+                    magic = handle.read(4)
+                if magic in _MAGIC_32 or magic in _MAGIC_64:
+                    found.append(path)
+    return sorted(found)

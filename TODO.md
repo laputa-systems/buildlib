@@ -1,13 +1,5 @@
 Prefix: BLIB
 Next: 5
-### BLIB-1 · P1 · Filesystem scans silently omit unreadable release inputs
-
-- **Area:** Release archives and binary discovery
-- **Where:** `src/buildlib/release.py:163`; `src/buildlib/elf.py:82-88,309-315`; `src/buildlib/macho.py:115-122,318-323`; `tests/test_release.py:193-201`
-- **Problem:** Archive creation and binary discovery use Path.rglob, which suppresses directory enumeration failures. The binary predicates also convert file-read OSError into False. Proven on Python 3.15.2 with real permissions: build a valid archive containing lib/required.so, chmod source/lib to 000, then call create_archive again. It returns success, publishes only the lib directory, and replaces the complete archive. find_elfs and find_machos likewise silently omit unreadable subtrees and unreadable regular binaries. Direct reads raise PermissionError; readable controls find both binaries and recover when permissions are restored. Callers cannot tell that release inputs or verification inventories are incomplete.
-- **Recommendation:** Propagate traversal, metadata, and relevant file-read failures instead of treating them as absent inputs. Preserve sorted output and the existing symlink policies. Use strict classification in find_elfs/find_machos even if their convenience predicates retain best-effort behavior. Add real permission-failure regressions for nested directories and regular binaries, with readable controls; failed archive creation must preserve a preexisting complete archive byte-for-byte and leave no temporary output.
-- **Fix with:** os-boundaries
-- **Effort:** M
 
 
 ### BLIB-2 · P2 · ELF shared libraries are misclassified as PIE executables

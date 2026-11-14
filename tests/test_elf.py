@@ -121,3 +121,24 @@ def test_unmapped_string_table_is_an_error(tmp_path: Path) -> None:
     path.write_bytes(bytes(data))
     with pytest.raises(elf.ELFError, match="not mapped"):
         elf.dependencies(path)
+
+
+@pytest.mark.parametrize("unreadable", ["directory", "file"])
+def test_find_elfs_propagates_permission_errors(tmp_path: Path, unreadable: str) -> None:
+    directory = tmp_path / "nested"
+    directory.mkdir()
+    image = directory / "image"
+    image.write_bytes(elf_image())
+    other = tmp_path / "a-image"
+    other.write_bytes(image.read_bytes())
+    (tmp_path / "linked-directory").symlink_to(directory, target_is_directory=True)
+    assert elf.find_elfs(tmp_path) == [other, image]
+    target = directory if unreadable == "directory" else image
+    mode = target.stat().st_mode
+    target.chmod(0)
+    try:
+        with pytest.raises(PermissionError):
+            elf.find_elfs(tmp_path)
+    finally:
+        target.chmod(mode)
+    assert elf.find_elfs(tmp_path) == [other, image]
