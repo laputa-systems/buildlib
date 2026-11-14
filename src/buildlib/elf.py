@@ -24,7 +24,7 @@ PT_GNU_EH_FRAME, PT_GNU_STACK, PT_GNU_RELRO = 0x6474E550, 0x6474E551, 0x6474E552
 DT_NULL, DT_NEEDED, DT_STRTAB, DT_STRSZ = 0, 1, 5, 10
 DT_RPATH, DT_RUNPATH, DT_FLAGS = 15, 29, 30
 DT_FLAGS_1 = 0x6FFFFFFB
-DF_BIND_NOW, DF_1_NOW = 0x8, 0x1
+DF_BIND_NOW, DF_1_NOW, DF_1_PIE = 0x8, 0x1, 0x08000000
 
 PF_X, PF_W, PF_R = 0x1, 0x2, 0x4
 
@@ -46,6 +46,8 @@ class ELFHeader:
     machine: int
     phoff: int
     phnum: int
+    program_types: tuple[int, ...]
+    dynamic_flags_1: tuple[int, ...]
 
     @property
     def arch(self) -> str:
@@ -54,7 +56,7 @@ class ELFHeader:
     @property
     def kind(self) -> str:
         if self.etype == ET_DYN:
-            return "pie-executable"
+            return "pie-executable" if self.pie else "shared-library"
         if self.etype == ET_EXEC:
             return "executable"
         if self.etype == ET_REL:
@@ -63,7 +65,9 @@ class ELFHeader:
 
     @property
     def pie(self) -> bool:
-        return self.etype == ET_DYN
+        return self.etype == ET_DYN and (
+            PT_INTERP in self.program_types or any(flags & DF_1_PIE for flags in self.dynamic_flags_1)
+        )
 
     @property
     def is_64(self) -> bool:
@@ -121,11 +125,20 @@ def _read_header(path: Path) -> tuple[ELFHeader, list[ProgramHeader]]:
         ProgramHeader(ptype, flags, offset, vaddr, filesz, memsz)
         for ptype, flags, offset, vaddr, _paddr, filesz, memsz, _align in struct.iter_unpack("<IIQQQQQQ", table)
     ]
-    return ELFHeader(path, elf_class, etype, machine, phoff, phnum), headers
+    entries = _read_dynamic_entries(path, headers)
+    return ELFHeader(
+        path, elf_class, etype, machine, phoff, phnum,
+        tuple(header.ptype for header in headers),
+        tuple(value for tag, value in entries if tag == DT_FLAGS_1),
+    ), headers
 
 
 def read_header(path: Path) -> ELFHeader:
-    """Parse the ELF header, rejecting anything but 64-bit little-endian images."""
+    """Parse a 64-bit little-endian image and its kind-defining metadata.
+
+    ET_DYN is a PIE executable when PT_INTERP or DF_1_PIE is present;
+    otherwise its kind is `shared-library`.
+    """
     return _read_header(path)[0]
 
 
@@ -156,20 +169,26 @@ def _map_va(headers: list[ProgramHeader], addr: int, size: int) -> tuple[int, in
     return None
 
 
+def _read_dynamic_entries(path: Path, headers: list[ProgramHeader]) -> list[tuple[int, int]]:
+    dynamic = next((h for h in headers if h.ptype == PT_DYNAMIC), None)
+    if dynamic is None:
+        return []
+    with path.open("rb") as handle:
+        blob = _read_at(handle, path, dynamic.offset, dynamic.filesz, "dynamic section")
+    entries: list[tuple[int, int]] = []
+    for offset in range(0, len(blob) - 15, 16):
+        tag, val = struct.unpack_from("<qQ", blob, offset)
+        entries.append((tag, val))
+        if tag == DT_NULL:
+            break
+    return entries
+
+
 def _dynamic_entries(path: Path) -> tuple[list[tuple[int, int]], bytes]:
     path = Path(path)
     _, headers = _read_header(path)
-    dynamic = next((h for h in headers if h.ptype == PT_DYNAMIC), None)
-    if dynamic is None:
-        return [], b""
+    entries = _read_dynamic_entries(path, headers)
     with path.open("rb") as handle:
-        blob = _read_at(handle, path, dynamic.offset, dynamic.filesz, "dynamic section")
-        entries: list[tuple[int, int]] = []
-        for offset in range(0, len(blob) - 15, 16):
-            tag, val = struct.unpack_from("<qQ", blob, offset)
-            entries.append((tag, val))
-            if tag == DT_NULL:
-                break
         strtab = next((v for t, v in entries if t == DT_STRTAB), 0)
         strsz = next((v for t, v in entries if t == DT_STRSZ), 0)
         if not strtab or not strsz:
@@ -241,21 +260,22 @@ def inspect(path: Path) -> dict:
     }
 
 
-def hardening_violations(path: Path, *, machine: int | None = None) -> list[str]:
+def hardening_violations(path: Path, *, machine: int | None = None, require_pie: bool = True) -> list[str]:
     """List the ways an image falls short of the release hardening baseline.
 
-    The baseline is a PIE (ET_DYN) image with a non-executable PT_GNU_STACK, a
+    The baseline is a PIE executable with a non-executable PT_GNU_STACK, a
     PT_GNU_RELRO segment, eager binding, and no writable-and-executable LOAD
     segment. When `machine` (an `EM_*` value, see `targets.Target.elf_machine`)
     is given, the image must also be built for it. An empty list means the
     image passes. Interpreter, needed-library, and RPATH policy differ per
-    repository and are left to the caller.
+    repository and are left to the caller. Set `require_pie=False` to check
+    the remaining hardening properties on a shared library or other image.
     """
     header, headers = _read_header(path)
     problems = []
     if machine is not None and header.machine != machine:
         problems.append(f"machine is {header.arch}, expected {MACHINE_NAMES.get(machine, machine)}")
-    if not header.pie:
+    if require_pie and not header.pie:
         problems.append(f"image is {header.kind}, not a PIE")
     stack = next((h for h in headers if h.ptype == PT_GNU_STACK), None)
     if stack is None:

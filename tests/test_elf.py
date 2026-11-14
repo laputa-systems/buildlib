@@ -31,10 +31,36 @@ def test_inspect_reports_a_hardened_musl_executable(tmp_path: Path) -> None:
 
 
 def test_static_image_has_no_interpreter_or_dependencies(tmp_path: Path) -> None:
-    path = write(tmp_path, "static", interp=None)
+    path = write(tmp_path, "static", interp=None, flags_1=0x08000000)
     assert elf.interpreter(path) is None
     assert elf.dependencies(path) == []
     assert elf.rpaths(path) == []
+
+
+@pytest.mark.parametrize(
+    ("name", "interp", "flags_1", "kind", "pie"),
+    [
+        ("shared", None, 0, "shared-library", False),
+        ("dynamic-pie", "/lib/ld.so", 0, "pie-executable", True),
+        ("static-pie", None, 0x08000000, "pie-executable", True),
+    ],
+)
+def test_dynamic_image_kind(tmp_path: Path, name: str, interp: str | None, flags_1: int, kind: str, pie: bool) -> None:
+    path = write(tmp_path, name, interp=interp, flags_1=flags_1)
+    header = elf.read_header(path)
+    assert (header.kind, header.pie) == (kind, pie)
+    report = elf.inspect(path)
+    assert (report["kind"], report["pie"]) == (kind, pie)
+    if pie:
+        assert elf.hardening_violations(path) == []
+
+
+def test_shared_library_hardening_policy(tmp_path: Path) -> None:
+    path = write(tmp_path, "library", interp=None)
+    assert elf.hardening_violations(path) == ["image is shared-library, not a PIE"]
+    assert elf.hardening_violations(path, require_pie=False) == []
+    weak = write(tmp_path, "weak-library", interp=None, relro=False)
+    assert elf.hardening_violations(weak, require_pie=False) == ["missing PT_GNU_RELRO"]
 
 
 def test_header_decodes_machine_and_type(tmp_path: Path) -> None:

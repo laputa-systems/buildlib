@@ -62,6 +62,7 @@ def elf_image(
     needed: tuple[str, ...] = (),
     runpath: str | None = None,
     bind_now: bool = True,
+    flags_1: int = 0,
     relro: bool = True,
     stack_flags: int | None = elf.PF_R | elf.PF_W,
     build_id: bytes | None = None,
@@ -78,6 +79,8 @@ def elf_image(
         dynamic_entries.append((elf.DT_RUNPATH, offsets[runpath]))
     if bind_now:
         dynamic_entries.append((elf.DT_FLAGS, elf.DF_BIND_NOW))
+    if flags_1:
+        dynamic_entries.append((0x6FFFFFFB, flags_1))
 
     note = b""
     if build_id is not None:
