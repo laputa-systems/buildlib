@@ -30,12 +30,4 @@ Next: 5
 - **Effort:** M
 
 
-### BLIB-4 · P2 · Malformed mirror redirects abort fallback before a healthy mirror is tried
-
-- **Area:** Input fetching
-- **Where:** `src/buildlib/locks.py:126-137,215-219,249-255`; `tests/test_locks.py:172-233`
-- **Problem:** fetch_input catches FetchError, OSError, and HTTPException, but urllib raises ValueError while parsing malformed URLs or redirect locations. Proven on Python 3.15.2 with a real local HTTPS server and normal certificate verification: a valid lock lists /bad then /good; /bad returns 302 with Location: https://[broken. fetch_input raises ValueError('Invalid IPv6 URL') after requesting only /bad. Fetching /good alone succeeds and verifies the pinned size and SHA-256. A broken primary mirror therefore defeats the advertised recovery path. load_sources also accepts the same malformed HTTPS syntax because it checks only the scheme prefix.
-- **Recommendation:** Translate URL-construction and redirect-parse failures at the network boundary into FetchError with the original cause so mirror fallback continues. Validate configured URL syntax for early LockError diagnostics, but retain redirect handling because a valid URL can receive malformed remote metadata. Extend the real-origin fixture with a bad redirect followed by a healthy mirror and assert request order plus verified publication. When every mirror fails this way, require an aggregate FetchError and preservation of the previous destination.
-- **Fix with:** error-model
-- **Effort:** S
 

@@ -173,6 +173,7 @@ class Origin:
     def __init__(self) -> None:
         self.files: dict[str, bytes] = {}
         self.requests: list[str] = []
+        self.redirects: dict[str, str] = {}
         self.base = ""
 
 
@@ -183,6 +184,11 @@ def origin() -> Iterator[Origin]:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             state.requests.append(self.path)
+            if self.path in state.redirects:
+                self.send_response(302)
+                self.send_header("Location", state.redirects[self.path])
+                self.end_headers()
+                return
             body = state.files.get(self.path)
             if body is None:
                 self.send_error(404)
@@ -311,3 +317,32 @@ def test_verify_file_checks_size_and_digest(tmp_path: Path) -> None:
         locks.verify_file(path, good)
     with pytest.raises(locks.FetchError, match="not a regular file"):
         locks.verify_file(tmp_path / "missing", good)
+
+
+@pytest.mark.parametrize("url", ["https://[broken", "https:///missing-host", "https://host:invalid/x"])
+def test_load_sources_rejects_malformed_urls(tmp_path: Path, url: str) -> None:
+    with pytest.raises(locks.LockError, match="URL"):
+        locks.load_sources(write(tmp_path, sources(entry(url=url))))
+
+
+def test_bad_redirect_falls_back_to_verified_mirror(origin: Origin, tmp_path: Path) -> None:
+    origin.redirects["/bad"] = "https://[broken"
+    origin.files["/good"] = PAYLOAD
+    destination = tmp_path / "out"
+    locks.fetch_input(item(origin, "/bad", "/good"), destination)
+    assert origin.requests == ["/bad", "/good"]
+    assert destination.read_bytes() == PAYLOAD
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+def test_all_bad_redirects_preserve_destination(origin: Origin, tmp_path: Path) -> None:
+    origin.redirects.update({"/bad": "https://[broken", "/also-bad": "https://[broken"})
+    destination = tmp_path / "out"
+    destination.write_bytes(b"old")
+    with pytest.raises(locks.FetchError, match="no URL served") as raised:
+        locks.fetch_input(item(origin, "/bad", "/also-bad"), destination)
+    assert "/bad" in str(raised.value)
+    assert "/also-bad" in str(raised.value)
+    assert origin.requests == ["/bad", "/also-bad"]
+    assert destination.read_bytes() == b"old"
+    assert list(tmp_path.iterdir()) == [destination]

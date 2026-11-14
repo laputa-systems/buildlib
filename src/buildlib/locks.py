@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
+import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -132,6 +133,13 @@ def _urls(path: Path, where: str, entry: Mapping[str, Any]) -> tuple[str, ...]:
     for url in raw:
         if not isinstance(url, str) or not url.startswith("https://"):
             raise LockError(path, f"{where}: every URL must be an https:// string, found {url!r}")
+        try:
+            parsed = urllib.parse.urlsplit(url)
+            if not parsed.hostname:
+                raise ValueError("missing host")
+            _ = parsed.port
+        except ValueError as error:
+            raise LockError(path, f"{where}: invalid URL {url!r}: {error}") from error
     if len(set(raw)) != len(raw):
         raise LockError(path, f"{where}: urls repeat a mirror")
     return tuple(raw)
@@ -213,10 +221,14 @@ def verify_file(path: Path | str, item: Input) -> None:
 
 
 def _download(item: Input, url: str, destination: Path, timeout: float) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        response = urllib.request.urlopen(request, timeout=timeout)
+    except ValueError as error:
+        raise FetchError(f"{item.name}: {url}: invalid URL or redirect: {error}") from error
     digest = hashlib.sha256()
     received = 0
-    with _atomic.atomic_file(destination) as output, urllib.request.urlopen(request, timeout=timeout) as response:
+    with response, _atomic.atomic_file(destination) as output:
         while chunk := response.read(_CHUNK):
             received += len(chunk)
             if item.size is not None and received > item.size:
