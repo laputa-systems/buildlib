@@ -1,17 +1,27 @@
 # laputa-buildlib
 
-Shared helpers for the laputa-systems build repositories, implementing the build repository contract
-kept in the [stuff](https://github.com/laputa-systems/stuff) repository.
-Standard library only; Python 3.15 or newer. Import the submodules directly.
+Standard-library-only helpers for the laputa-systems build repositories. Requires Python 3.15 or newer.
+Implements the [build repository contract](https://github.com/laputa-systems/stuff/blob/main/docs/build-repos.md).
+Import the submodules directly:
+
+```python
+from buildlib.locks import fetch_input, load_sources
+
+source = load_sources("sources.lock.json").get("cpython")
+fetch_input(source, ".work/downloads/Python.tar.xz")
+```
 
 | Module | Provides |
 | --- | --- |
-| `buildlib.locks` | Load and validate `sources.lock.json`, `release-budgets.json`, and `bootstrap.lock.json` (`LockError` carries the file path and reason); `fetch_input` downloads a pinned input, trying its URLs in order and publishing atomically after the size and SHA-256 match. |
-| `buildlib.release` | Per-target `<product>-<version>-<target>.manifest.json` with deterministic key order, reproducible `.tar.xz` archives, and a sorted `SHA256SUMS` writer and verifier. |
-| `buildlib.macho` | Mach-O header and load-command inspection, signature status, and UUID/signature-normalized bytes for reproducibility comparisons. |
-| `buildlib.elf` | ELF header, program-header, and dynamic-section inspection, a hardening check, and build-id-normalized bytes. |
-| `buildlib.targets` | The released triples (`aarch64-apple-darwin`, `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`) and the platform, architecture, and loader strings for each. |
-| `buildlib.hashing` | SHA-256 of files. |
+| [buildlib.locks](src/buildlib/locks.py) | Source-input validation and verified downloads; budget and bootstrap readers. `LockError` includes the path and reason. |
+| [buildlib.release](src/buildlib/release.py) | Per-target manifests, reproducible `.tar.xz` archives, and a sorted `SHA256SUMS` writer and verifier. |
+| [buildlib.macho](src/buildlib/macho.py) | Thin Mach-O metadata and UUID/signature normalization. `signature_status` requires macOS `codesign`. |
+| [buildlib.elf](src/buildlib/elf.py) | 64-bit little-endian ELF metadata, hardening checks, and build-id normalization. |
+| [buildlib.targets](src/buildlib/targets.py) | Supported release triples and their platform, architecture, and loader mappings. |
+| [buildlib.hashing](src/buildlib/hashing.py) | SHA-256 and byte size of files. |
+
+Budget validation checks the schema version, supported target names, and object-shaped limits.
+Bootstrap validation checks the object and schema version. Repository-specific fields need caller validation.
 
 ## Pinning
 
@@ -29,6 +39,4 @@ default = true
 
 Then run `uv lock` and commit `uv.lock`. Upgrade by changing the pin.
 
-## Development
-
-`make test` runs the tests, `make lint` runs Ruff and ty, and `make clean` removes build output.
+Licensed under [Apache-2.0](LICENSE). Report problems through [GitHub issues](https://github.com/laputa-systems/buildlib/issues).

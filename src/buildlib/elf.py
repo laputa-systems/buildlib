@@ -139,7 +139,7 @@ def _segment_bytes(path: Path, header: ProgramHeader) -> bytes:
 
 
 def interpreter(path: Path) -> str | None:
-    """The PT_INTERP path, or None for a static image."""
+    """The PT_INTERP path, or None when the image has no interpreter segment."""
     for header in program_headers(path):
         if header.ptype == PT_INTERP:
             return _segment_bytes(path, header).split(b"\x00")[0].decode("utf-8", "replace")

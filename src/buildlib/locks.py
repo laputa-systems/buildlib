@@ -1,8 +1,8 @@
 """Readers and validators for the pinned-input files build repositories share.
 
-`sources.lock.json`, `release-budgets.json`, and `bootstrap.lock.json` are JSON
-objects with an integer `schema_version` of 1. Keys beyond the ones named here
-belong to the repository and are preserved.
+`sources.lock.json`, `release-budgets.json`, and `bootstrap.lock.json` require integer schema version 1.
+Source input extras, per-target budget values, and the bootstrap object are preserved.
+Other top-level source and budget keys are discarded.
 """
 
 from __future__ import annotations
