@@ -18,12 +18,12 @@ Not started.
 - **Fix with:** deslop
 - **Effort:** M
 
-### DSLP-9 · P3 · Target admits Linux-only fields on macOS and loose closed sets
+### DSLP-9 · P3 · Target admits Linux-only fields on macOS and free strings for its closed sets
 
 - **Area:** Domain model
-- **Where:** src/buildlib/targets.py:20-45, src/buildlib/elf.py:57 (ELFHeader.kind)
-- **Problem:** Target carries docker_platform, alpine_arch, musl_loader, and elf_machine as optional fields that are always set on Linux and never on macOS, and family, executable_format, and kind are free strings over closed sets. Consumers must re-check is_linux and then trust the optional fields.
-- **Recommendation:** Model the macOS and Linux targets as separate types (or a Linux detail record) and the closed sets as Literal types; check consumers in the build repositories before changing the public shape.
+- **Where:** src/buildlib/targets.py:20-45
+- **Problem:** Target carries docker_platform, alpine_arch, musl_loader, and elf_machine as optional fields that are always set on Linux and never on macOS, and family and executable_format are free strings over closed sets (the module defines MACOS and LINUX_MUSL). Consumers must re-check is_linux and then trust the optional fields. Out of scope here: ELFHeader.kind (elf.py:57) is open-ended by design, returning type-{etype} for any ELF type it does not name, so it is not a closed set and must keep that behavior.
+- **Recommendation:** Revalidate against the build repositories first: list each consumer of Target and its Linux fields (repomod deps). Then model the Linux details as one record present exactly on Linux targets, and family and executable_format as Literal types, keeping the public attribute names or filing the rename as a walk-back. Leave ELFHeader.kind a str.
 - **Fix with:** make-invalid-states-unrepresentable
 - **Effort:** M
 
