@@ -17,6 +17,7 @@ import struct
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 
 _MAGIC_32 = {b"\xce\xfa\xed\xfe": "<", b"\xfe\xed\xfa\xce": ">"}
 _MAGIC_64 = {b"\xcf\xfa\xed\xfe": "<", b"\xfe\xed\xfa\xcf": ">"}
@@ -136,7 +137,7 @@ def _magic_of(path: Path) -> bytes:
     return magic
 
 
-def _header_fields(path: Path) -> tuple[str, bool, tuple]:
+def _header_fields(path: Path) -> tuple[str, bool, tuple[int, ...]]:
     """Byte order, bitness, and the raw header integers for one image."""
     path = Path(path)
     magic = _magic_of(path)
@@ -150,7 +151,7 @@ def _header_fields(path: Path) -> tuple[str, bool, tuple]:
         raw = handle.read(size)
     if len(raw) < size:
         raise MachOError(f"{path}: truncated Mach-O header")
-    return endian, is_64, struct.unpack(f"{endian}{fmt}", raw)
+    return endian, is_64, tuple(int(field) for field in struct.unpack(f"{endian}{fmt}", raw))
 
 
 def read_header(path: Path) -> MachOHeader:
@@ -258,7 +259,20 @@ def rpaths(path: Path) -> list[str]:
     return found
 
 
-def inspect(path: Path) -> dict:
+class MachOReport(TypedDict):
+    arch: str
+    kind: str
+    is_64: bool
+    pie: bool
+    platform: str | None
+    minos: str | None
+    sdk: str | None
+    install_name: str | None
+    dependencies: list[str]
+    rpaths: list[str]
+
+
+def inspect(path: Path) -> MachOReport:
     """A report-ready summary of one Mach-O image."""
     header = read_header(path)
     version = build_version(path)

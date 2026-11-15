@@ -24,6 +24,9 @@ REQUIRED_MANIFEST_FIELDS = (
     "sources_lock_sha256",
 )
 
+type JSONInput = bool | int | float | str | list[JSONInput] | tuple[JSONInput, ...] | Mapping[str, JSONInput] | None
+type JSONValue = bool | int | float | str | list[JSONValue] | dict[str, JSONValue] | None
+
 _NAME_PART = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*\Z")
 _REVISION = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 _SUMS_LINE = re.compile(r"([0-9a-f]{64})  (.+)\Z")
@@ -52,11 +55,15 @@ def manifest_name(product: str, version: str, target: str) -> str:
     return f"{_stem(product, version, target)}.manifest.json"
 
 
-def _ordered(value: Any) -> Any:
+def _ordered_object(value: Mapping[str, JSONInput]) -> dict[str, JSONValue]:
+    if not all(isinstance(key, str) for key in value):
+        raise ReleaseError("manifest keys must be strings")
+    return {key: _ordered(value[key]) for key in sorted(value)}
+
+
+def _ordered(value: JSONInput) -> JSONValue:
     if isinstance(value, Mapping):
-        if not all(isinstance(key, str) for key in value):
-            raise ReleaseError("manifest keys must be strings")
-        return {key: _ordered(value[key]) for key in sorted(value)}
+        return _ordered_object(value)
     if isinstance(value, (list, tuple)):
         return [_ordered(item) for item in value]
     return value
@@ -69,8 +76,8 @@ def build_manifest(
     target: str,
     source_revision: str,
     sources_lock_sha256: str,
-    extra: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+    extra: Mapping[str, JSONInput] | None = None,
+) -> dict[str, JSONValue]:
     """Build a manifest with the required fields first, then `extra` keys sorted at every depth.
 
     `source_revision` is the full commit SHA and `sources_lock_sha256` the digest of
@@ -85,7 +92,7 @@ def build_manifest(
     clash = sorted(set(extra) & set(REQUIRED_MANIFEST_FIELDS))
     if clash:
         raise ReleaseError(f"extra manifest fields redefine required fields: {clash}")
-    manifest: dict[str, Any] = {
+    manifest: dict[str, JSONValue] = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "product": product,
         "version": version,
@@ -93,7 +100,7 @@ def build_manifest(
         "source_revision": source_revision,
         "sources_lock_sha256": sources_lock_sha256,
     }
-    manifest.update(_ordered(extra))
+    manifest.update(_ordered_object(extra))
     return manifest
 
 
@@ -116,7 +123,7 @@ def write_manifest(directory: Path | str, manifest: Mapping[str, Any]) -> Path:
         sources_lock_sha256=manifest["sources_lock_sha256"],
         extra={key: value for key, value in manifest.items() if key not in REQUIRED_MANIFEST_FIELDS},
     )
-    path = Path(directory) / manifest_name(rebuilt["product"], rebuilt["version"], rebuilt["target"])
+    path = Path(directory) / manifest_name(manifest["product"], manifest["version"], manifest["target"])
     with _atomic.atomic_file(path) as handle:
         handle.write((json.dumps(rebuilt, indent=2) + "\n").encode("utf-8"))
     return path

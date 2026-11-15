@@ -12,7 +12,7 @@ import stat
 import struct
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, TypedDict
 
 ET_NONE, ET_REL, ET_EXEC, ET_DYN = 0, 1, 2, 3
 EM_X86_64, EM_AARCH64 = 62, 183
@@ -243,7 +243,20 @@ def has_bind_now(path: Path) -> bool:
     return False
 
 
-def inspect(path: Path) -> dict:
+class ELFReport(TypedDict):
+    arch: str
+    kind: str
+    is_64: bool
+    pie: bool
+    interpreter: str | None
+    dependencies: list[str]
+    rpaths: list[str]
+    relro: bool
+    bind_now: bool
+    stack_nx: bool
+
+
+def inspect(path: Path) -> ELFReport:
     """A report-ready summary of one ELF image."""
     header = read_header(path)
     return {

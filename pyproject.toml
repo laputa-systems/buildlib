@@ -47,6 +47,10 @@ python-version = "3.15"
 [tool.ty.src]
 include = ["src", "tests"]
 
+[tool.ty.rules]
+missing-type-argument = "error"
+unsound-return-statement = "error"
+
 [tool.ruff]
 target-version = "py315"
 line-length = 120
@@ -71,8 +75,13 @@ select = [
   "T20",
   "PERF",
   "FURB",
+  "ANN401",
 ]
 ignore = ["E501", "SIM105", "RET505", "SIM108"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test helpers build deliberately malformed lock documents and fake servers.
+"tests/**" = ["ANN401"]
 
 [tool.uv]
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]

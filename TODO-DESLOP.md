@@ -9,15 +9,6 @@ Not started.
 
 ## Tickets
 
-### DSLP-3 · P2 · Types: strict profile and typing findings
-
-- **Area:** deslop · types
-- **Where:** pyproject.toml [tool.ty], [tool.ruff.lint], src/buildlib
-- **Problem:** ty checks src and tests at default severity; Ruff omits the annotation and Any rules; 15 Any uses and one assert stand in for narrowing.
-- **Recommendation:** Run the deslop Types step and work DSLP-7 and DSLP-8 there. Accept: clean at the strict profile, escape hatches not increased, witnesses recorded.
-- **Fix with:** deslop
-- **Effort:** M
-
 ### DSLP-4 · P2 · Tests: coverage, boundary gaps, mutation
 
 - **Area:** deslop · tests
@@ -43,24 +34,6 @@ Not started.
 - **Problem:** load_commands accepts cmdsize 8, an empty payload, and the lc_str readers then call struct.unpack_from on it. Reproduced: an image with an empty LC_RPATH makes rpaths() and inspect() raise struct.error instead of MachOError, so a caller that handles malformed images by catching MachOError crashes instead.
 - **Recommendation:** Check each command's minimum payload size in one place before unpacking and raise MachOError; add the empty-payload case to test_rejects_load_commands_that_run_past_the_header.
 - **Fix with:** error-model
-- **Effort:** S
-
-### DSLP-7 · P3 · inspect() returns an untyped dict in both binary modules
-
-- **Area:** Types
-- **Where:** src/buildlib/elf.py:246, src/buildlib/macho.py:261
-- **Problem:** Both report functions are annotated -> dict, so consumers read keys like interpreter, dependencies, and install_name with no checked shape, and a renamed key fails only at runtime in a build repository.
-- **Recommendation:** Return a TypedDict per format with the exact keys and value types, and check the consumers in the build repositories against it.
-- **Fix with:** typing-audit
-- **Effort:** S
-
-### DSLP-8 · P3 · is_sha256 is a bool, so callers assert what it established
-
-- **Area:** Types
-- **Where:** src/buildlib/hashing.py:27, src/buildlib/locks.py:157
-- **Problem:** is_sha256 returns bool, so _input asserts isinstance(sha256, str) after calling it; the checker cannot carry the fact the predicate proved.
-- **Recommendation:** Annotate is_sha256 as TypeIs[str] and delete the assert; keep the release.py caller unchanged.
-- **Fix with:** typing-audit
 - **Effort:** S
 
 ### DSLP-9 · P3 · Target admits Linux-only fields on macOS and loose closed sets

@@ -130,9 +130,11 @@ def _urls(path: Path, where: str, entry: Mapping[str, Any]) -> tuple[str, ...]:
     raw = [entry["url"]] if "url" in entry else entry["urls"]
     if not isinstance(raw, list) or not raw:
         raise LockError(path, f"{where}: urls must be a nonempty list")
+    urls: list[str] = []
     for url in raw:
         if not isinstance(url, str) or not url.startswith("https://"):
             raise LockError(path, f"{where}: every URL must be an https:// string, found {url!r}")
+        urls.append(url)
         try:
             parsed = urllib.parse.urlsplit(url)
             if not parsed.hostname:
@@ -140,9 +142,9 @@ def _urls(path: Path, where: str, entry: Mapping[str, Any]) -> tuple[str, ...]:
             _ = parsed.port
         except ValueError as error:
             raise LockError(path, f"{where}: invalid URL {url!r}: {error}") from error
-    if len(set(raw)) != len(raw):
+    if len(set(urls)) != len(urls):
         raise LockError(path, f"{where}: urls repeat a mirror")
-    return tuple(raw)
+    return tuple(urls)
 
 
 def _input(path: Path, index: int, entry: object) -> Input:
@@ -154,7 +156,6 @@ def _input(path: Path, index: int, entry: object) -> Input:
     sha256 = entry.get("sha256")
     if not hashing.is_sha256(sha256):
         raise LockError(path, f"{where}: sha256 must be 64 lowercase hex digits")
-    assert isinstance(sha256, str)
     size = entry.get("size")
     if "size" in entry and (type(size) is not int or size < 0):
         raise LockError(path, f"{where}: size must be a nonnegative integer")
