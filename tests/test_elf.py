@@ -19,7 +19,6 @@ def test_inspect_reports_a_hardened_musl_executable(tmp_path: Path) -> None:
     assert elf.inspect(path) == {
         "arch": "x86_64",
         "kind": "pie-executable",
-        "is_64": True,
         "pie": True,
         "interpreter": "/lib/ld-musl-x86_64.so.1",
         "dependencies": ["libc.musl-x86_64.so.1"],
@@ -63,9 +62,20 @@ def test_shared_library_hardening_policy(tmp_path: Path) -> None:
     assert elf.hardening_violations(weak, require_pie=False) == ["missing PT_GNU_RELRO"]
 
 
+def test_header_rejects_32_bit_images(tmp_path: Path) -> None:
+    raw = bytearray(elf_image())
+    raw[4] = 1
+    path = tmp_path / "elf32"
+    path.write_bytes(bytes(raw))
+    with pytest.raises(elf.ELFError, match="only 64-bit ELF is supported"):
+        elf.read_header(path)
+    with pytest.raises(elf.ELFError, match="only 64-bit ELF is supported"):
+        elf.inspect(path)
+
+
 def test_header_decodes_machine_and_type(tmp_path: Path) -> None:
     header = elf.read_header(write(tmp_path, "arm", machine=elf.EM_AARCH64, etype=elf.ET_EXEC))
-    assert (header.arch, header.kind, header.pie, header.is_64) == ("aarch64", "executable", False, True)
+    assert (header.arch, header.kind, header.pie) == ("aarch64", "executable", False)
 
 
 def test_hardening_passes_for_the_baseline_on_every_linux_target(tmp_path: Path) -> None:

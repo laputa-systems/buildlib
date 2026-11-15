@@ -41,7 +41,6 @@ class ELFError(Exception):
 @dataclass(frozen=True)
 class ELFHeader:
     path: Path
-    elf_class: int
     etype: int
     machine: int
     phoff: int
@@ -68,10 +67,6 @@ class ELFHeader:
         return self.etype == ET_DYN and (
             PT_INTERP in self.program_types or any(flags & DF_1_PIE for flags in self.dynamic_flags_1)
         )
-
-    @property
-    def is_64(self) -> bool:
-        return self.elf_class == 2
 
 
 @dataclass(frozen=True)
@@ -127,7 +122,7 @@ def _read_header(path: Path) -> tuple[ELFHeader, list[ProgramHeader]]:
     ]
     entries = _read_dynamic_entries(path, headers)
     return ELFHeader(
-        path, elf_class, etype, machine, phoff, phnum,
+        path, etype, machine, phoff, phnum,
         tuple(header.ptype for header in headers),
         tuple(value for tag, value in entries if tag == DT_FLAGS_1),
     ), headers
@@ -246,7 +241,6 @@ def has_bind_now(path: Path) -> bool:
 class ELFReport(TypedDict):
     arch: str
     kind: str
-    is_64: bool
     pie: bool
     interpreter: str | None
     dependencies: list[str]
@@ -262,7 +256,6 @@ def inspect(path: Path) -> ELFReport:
     return {
         "arch": header.arch,
         "kind": header.kind,
-        "is_64": header.is_64,
         "pie": header.pie,
         "interpreter": interpreter(path),
         "dependencies": dependencies(path),
