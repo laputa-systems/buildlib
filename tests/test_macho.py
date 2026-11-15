@@ -143,6 +143,20 @@ def test_rejects_load_commands_that_run_past_the_header(tmp_path: Path) -> None:
     with pytest.raises(macho.MachOError, match="malformed load command size"):
         macho.load_commands(path)
 
+    for command, readers in (
+        (macho.LC_RPATH, (macho.rpaths, macho.inspect)),
+        (macho.LC_ID_DYLIB, (macho.dylib_id,)),
+        (macho.LC_BUILD_VERSION, (macho.build_version,)),
+        (macho.LC_VERSION_MIN_MACOSX, (macho.build_version,)),
+    ):
+        path.write_bytes(macho_image([macho_command(command, b"")]))
+        for reader in readers:
+            with pytest.raises(macho.MachOError, match="too short"):
+                reader(path)
+    path.write_bytes(macho_image([macho_command(next(iter(macho._DEPENDENCY_COMMANDS)), b"")]))
+    with pytest.raises(macho.MachOError, match="too short"):
+        macho.dependencies(path)
+
 
 def fake_codesign(directory: Path, status: int, message: str) -> None:
     script = directory / "codesign"
