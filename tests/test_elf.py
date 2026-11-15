@@ -94,6 +94,15 @@ def test_hardening_reports_every_missing_property(tmp_path: Path) -> None:
         assert expected in joined
 
 
+def test_only_a_writable_and_executable_load_segment_is_flagged(tmp_path: Path) -> None:
+    data = write(tmp_path, "data", load_flags=elf.PF_R | elf.PF_W)
+    assert elf.hardening_violations(data) == []
+    stack = write(tmp_path, "stack", stack_flags=elf.PF_R | elf.PF_W | elf.PF_X)
+    assert elf.hardening_violations(stack) == ["executable stack requested"]
+    load = write(tmp_path, "load", load_flags=elf.PF_R | elf.PF_W | elf.PF_X)
+    assert elf.hardening_violations(load) == ["writable and executable LOAD segment"]
+
+
 def test_missing_gnu_stack_is_a_violation(tmp_path: Path) -> None:
     path = write(tmp_path, "nostack", stack_flags=None)
     assert elf.hardening_violations(path) == ["missing PT_GNU_STACK"]

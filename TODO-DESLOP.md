@@ -13,8 +13,8 @@ Not started.
 
 - **Area:** deslop · tests
 - **Where:** tests/
-- **Problem:** The suite is behavior-named and boundary-shaped; whether it detects parser and validation defects is unmeasured.
-- **Recommendation:** Run the deslop Tests step with mutmut over locks, release, elf, and macho. Accept: no undispositioned survivor in the critical scope, the test cost budget holds, and the mutation lane is green.
+- **Problem:** mutmut 3.8.1 (scratch install from upstream PyPI; not mirrored) over src/buildlib: 1682 mutants in about 66s. Before this step 235 survived and 10 had no covering test (is_elf); the first tests (W^X hardening, SHA256SUMS separators, optional lock fields, size 0) brought survivors to 216. They concentrate in elf._read_header (19), elf.build_id_ranges (15), macho._string_at (12), elf._dynamic_entries (12), elf._dyn_string (12), macho.signature_status (11), macho.signature_metadata_ranges (10), macho.load_commands (9), elf._read_dynamic_entries (9), locks._download (8). Many are error-message text mutations; verified equivalent: read_text encoding utf-8 versus the 3.15 default, and sorting by os.fsencode versus str order.
+- **Recommendation:** Run the deslop Tests step recipe (references/tools.md, Python) on a scratch copy, disposition each remaining survivor (message text needs no test; give each parser boundary a byte-built malformed image), add make coverage, and record the before and after counts. No CI mutation lane until mutmut is mirrored. Accept: no undispositioned survivor in locks, release, elf, or macho.
 - **Fix with:** deslop
 - **Effort:** M
 

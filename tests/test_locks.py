@@ -67,6 +67,11 @@ def test_load_sources_reads_the_contract_example(tmp_path: Path) -> None:
     assert hash(first) == hash(first)
 
 
+def test_an_empty_input_is_a_valid_pin(tmp_path: Path) -> None:
+    lock = locks.load_sources(write(tmp_path, sources(entry(size=0))))
+    assert lock.get("cpython").size == 0
+
+
 def test_get_reports_unknown_names(tmp_path: Path) -> None:
     lock = locks.load_sources(write(tmp_path, sources(entry())))
     with pytest.raises(locks.LockError, match="no input named 'nope'"):
@@ -99,8 +104,11 @@ def test_get_reports_unknown_names(tmp_path: Path) -> None:
         (sources(entry(size=-1)), "size must be a nonnegative integer"),
         (sources(entry(size=True)), "size must be a nonnegative integer"),
         (sources(entry(size="12")), "size must be a nonnegative integer"),
-        (sources(entry(role="")), "role must be a nonempty string"),
-        (sources(entry(license=3)), "license must be a nonempty string"),
+        (sources(entry(role="")), "input 'cpython': role must be a nonempty string"),
+        (sources(entry(license=3)), "input 'cpython': license must be a nonempty string"),
+        (sources(entry(target=5)), "input 'cpython': target must be a nonempty string"),
+        (sources(entry(purpose="")), "input 'cpython': purpose must be a nonempty string"),
+        (sources(entry(url="https://")), "input 'cpython': invalid URL"),
         (sources(entry(), entry()), "duplicate input 'cpython'"),
     ],
 )
