@@ -277,6 +277,8 @@ def test_verify_detects_each_kind_of_drift(tmp_path: Path) -> None:
         "malformed": original.replace("  ", " ", 1),
         "trailing newline": original.rstrip("\n"),
         "malformed line": original + "../escape\n",
+        r":4: malformed line '0+  sub/c": original + "0" * 64 + "  sub/c.tar.xz\n",
+        r":4: malformed line '0+  sub\\\\c": original + "0" * 64 + "  sub\\c.tar.xz\n",
     }
     for message, text in cases.items():
         sums.write_text(text)
