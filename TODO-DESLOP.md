@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 10
+Next: 11
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md)). One agent works this file: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-5, work the open P1 and P2 findings, then fill in `## Report` below.
 
@@ -18,15 +18,6 @@ Not started.
 - **Fix with:** deslop
 - **Effort:** M
 
-### DSLP-5 · P2 · Dead code: tools and debloat
-
-- **Area:** deslop · dead code
-- **Where:** whole repository
-- **Problem:** No dead-code scan has run. ELFHeader.is_64 and inspect()["is_64"] are always True because _read_header rejects every other class.
-- **Recommendation:** Run the deslop Dead code step. Accept: tools clean or allowlisted with reasons; public API removals go to an owner ticket.
-- **Fix with:** deslop
-- **Effort:** S
-
 ### DSLP-9 · P3 · Target admits Linux-only fields on macOS and loose closed sets
 
 - **Area:** Domain model
@@ -35,4 +26,13 @@ Not started.
 - **Recommendation:** Model the macOS and Linux targets as separate types (or a Linux detail record) and the closed sets as Literal types; check consumers in the build repositories before changing the public shape.
 - **Fix with:** make-invalid-states-unrepresentable
 - **Effort:** M
+
+### DSLP-10 · P3 · ELF is_64 and elf_class can only ever be true and 2
+
+- **Area:** Needs owner · Binary inspection
+- **Where:** src/buildlib/elf.py:44 (ELFHeader.elf_class), elf.py:73 (is_64), elf.py ELFReport is_64
+- **Problem:** _read_header rejects every ELF class except 2, so ELFHeader.elf_class is always 2, is_64 is always True, and inspect() always reports is_64: True. No consumer in cmake-, node-, ffmpeg-, chromium-, python-build, or pi-build reads them (chromium-build has its own ELF reader); only buildlib's tests do. Removing them changes the public API of a released library, so it is a walk-back.
+- **Recommendation:** Owner: approve removing elf_class, is_64, and the is_64 report key in the next release, or keep them for report parity with macho.inspect. If approved, delete them and update the two tests.
+- **Fix with:** delete
+- **Effort:** S
 
