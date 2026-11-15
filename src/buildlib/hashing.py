@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import TypeIs
+from typing import TypeGuard
 
 _CHUNK = 1 << 20
 
@@ -25,6 +25,6 @@ def sha256_file(path: Path) -> str:
     return digest_file(path)[0]
 
 
-def is_sha256(value: object) -> TypeIs[str]:
+def is_sha256(value: object) -> TypeGuard[str]:
     """True for a 64-character lowercase hexadecimal string."""
     return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
