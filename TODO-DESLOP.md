@@ -31,8 +31,8 @@ Not started.
 
 - **Area:** Needs owner · Binary inspection
 - **Where:** src/buildlib/elf.py:44 (ELFHeader.elf_class), elf.py:73 (is_64), elf.py ELFReport is_64
-- **Problem:** _read_header rejects every ELF class except 2, so ELFHeader.elf_class is always 2, is_64 is always True, and inspect() always reports is_64: True. No consumer in cmake-, node-, ffmpeg-, chromium-, python-build, or pi-build reads them (chromium-build has its own ELF reader); only buildlib's tests do. Removing them changes the public API of a released library, so it is a walk-back.
-- **Recommendation:** Owner: approve removing elf_class, is_64, and the is_64 report key in the next release, or keep them for report parity with macho.inspect. If approved, delete them and update the two tests.
+- **Problem:** _read_header rejects every ELF class except 2, so ELFHeader.elf_class is always 2, is_64 is always True, and inspect() always reports is_64: True. Revalidated 2026-11-15: the original claim that no build repository reads them was wrong. node-build imports buildlib.elf and checks `not header.is_64` (buildsys/validate_product.py:190, a check that can never fire) and asserts header.is_64 in tests/test_elf.py:118; it pins laputa-buildlib==0.1.0, so removal breaks it only when it bumps the pin. python-build reads is_64 only on Mach-O headers (macho.is_64 is meaningful and stays). Removing them changes the public API of a released library, so it is a walk-back.
+- **Recommendation:** Owner (re-confirm, since the earlier approval assumed no consumers): remove elf_class, ELFHeader.is_64 and the ELF report is_64 key, and in the same campaign drop node-build`s dead `not header.is_64` ELF check and its test assertion before it bumps to the release that removes them. Or keep them for report parity with macho.inspect.
 - **Fix with:** delete
 - **Effort:** S
 
