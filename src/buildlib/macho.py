@@ -218,14 +218,20 @@ def _string_at(payload: bytes, offset: int) -> str:
     return raw.decode("utf-8", "replace")
 
 
+def _fields(path: Path, command: LoadCommand, fmt: str) -> tuple[int, ...]:
+    if len(command.payload) < struct.calcsize(fmt):
+        raise MachOError(f"{path}: load command {command.cmd:#x} is too short for its fields")
+    return tuple(int(field) for field in struct.unpack_from(fmt, command.payload, 0))
+
+
 def build_version(path: Path) -> BuildVersion | None:
     """The `LC_BUILD_VERSION` (or legacy `LC_VERSION_MIN_MACOSX`) floor, if present."""
     for command in load_commands(path):
         if command.cmd == LC_BUILD_VERSION:
-            platform, minos, sdk = struct.unpack_from("<III", command.payload, 0)
+            platform, minos, sdk = _fields(path, command, "<III")
             return BuildVersion(platform, format_version(minos), format_version(sdk))
         if command.cmd == LC_VERSION_MIN_MACOSX:
-            version, sdk = struct.unpack_from("<II", command.payload, 0)
+            version, sdk = _fields(path, command, "<II")
             return BuildVersion(PLATFORM_MACOS, format_version(version), format_version(sdk))
     return None
 
@@ -235,7 +241,7 @@ def dependencies(path: Path) -> list[str]:
     names = []
     for command in load_commands(path):
         if command.cmd in _DEPENDENCY_COMMANDS:
-            offset = struct.unpack_from("<I", command.payload, 0)[0]
+            (offset,) = _fields(path, command, "<I")
             names.append(_string_at(command.payload, offset))
     return names
 
@@ -244,7 +250,7 @@ def dylib_id(path: Path) -> str | None:
     """This image's own install name, for a dylib (LC_ID_DYLIB)."""
     for command in load_commands(path):
         if command.cmd == LC_ID_DYLIB:
-            offset = struct.unpack_from("<I", command.payload, 0)[0]
+            (offset,) = _fields(path, command, "<I")
             return _string_at(command.payload, offset)
     return None
 
@@ -254,7 +260,7 @@ def rpaths(path: Path) -> list[str]:
     found = []
     for command in load_commands(path):
         if command.cmd == LC_RPATH:
-            offset = struct.unpack_from("<I", command.payload, 0)[0]
+            (offset,) = _fields(path, command, "<I")
             found.append(_string_at(command.payload, offset))
     return found
 

@@ -27,15 +27,6 @@ Not started.
 - **Fix with:** deslop
 - **Effort:** S
 
-### DSLP-6 · P3 · Mach-O string readers leak struct.error on a short load command
-
-- **Area:** Binary inspection
-- **Where:** src/buildlib/macho.py:232-258 (dependencies, dylib_id, rpaths), macho.py:220 (build_version)
-- **Problem:** load_commands accepts cmdsize 8, an empty payload, and the lc_str readers then call struct.unpack_from on it. Reproduced: an image with an empty LC_RPATH makes rpaths() and inspect() raise struct.error instead of MachOError, so a caller that handles malformed images by catching MachOError crashes instead.
-- **Recommendation:** Check each command's minimum payload size in one place before unpacking and raise MachOError; add the empty-payload case to test_rejects_load_commands_that_run_past_the_header.
-- **Fix with:** error-model
-- **Effort:** S
-
 ### DSLP-9 · P3 · Target admits Linux-only fields on macOS and loose closed sets
 
 - **Area:** Domain model
