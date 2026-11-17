@@ -1,5 +1,5 @@
 Prefix: DSLP
-Next: 11
+Next: 12
 
 Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/main/docs/campaigns/deslop.md)). One agent works this file: take the lowest-numbered open ticket whose area does not start with `Needs owner ·`. After DSLP-5, work the open P1 and P2 findings, then fill in `## Report` below.
 
@@ -18,6 +18,8 @@ Not started.
 - **Fix with:** deslop
 - **Effort:** M
 
+
+
 ### DSLP-9 · P3 · Target admits Linux-only fields on macOS and free strings for its closed sets
 
 - **Area:** Domain model
@@ -26,5 +28,4 @@ Not started.
 - **Recommendation:** Revalidate against the build repositories first: list each consumer of Target and its Linux fields (repomod deps). Then model the Linux details as one record present exactly on Linux targets, and family and executable_format as Literal types, keeping the public attribute names or filing the rename as a walk-back. Leave ELFHeader.kind a str.
 - **Fix with:** make-invalid-states-unrepresentable
 - **Effort:** M
-
 
