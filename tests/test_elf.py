@@ -295,3 +295,119 @@ def test_find_elfs_propagates_permission_errors(tmp_path: Path, unreadable: str)
     finally:
         target.chmod(mode)
     assert elf.find_elfs(tmp_path) == [other, image]
+
+
+def independent_image(segments: list[tuple[int, int, int, int, bytes]]) -> bytes:
+    ident = b"\x7fELF\x02\x01\x01" + bytes(9)
+    header = struct.pack("<HHIQQQIHHHHHH", 3, 62, 1, 0, 64, 0, 0, 64, 56, len(segments), 0, 0, 0)
+    phdrs = b"".join(struct.pack("<IIQQQQQQ", kind, flags, offset, address, 0, len(data), len(data), 1)
+                     for kind, flags, offset, address, data in segments)
+    image = bytearray(ident + header + phdrs)
+    for _, _, offset, _, data in segments:
+        if len(image) < offset + len(data):
+            image.extend(bytes(offset + len(data) - len(image)))
+        image[offset:offset + len(data)] = data
+    return bytes(image)
+
+
+def test_magic_reader_handles_files_and_missing_paths(tmp_path: Path) -> None:
+    image = tmp_path / "image"
+    image.write_bytes(b"\x7fELFmore")
+    assert elf.is_elf(image)
+    image.write_bytes(b"\x7fEL")
+    assert not elf.is_elf(image)
+    assert not elf.is_elf(tmp_path / "missing")
+
+
+def test_dynamic_strings_mapping_and_entry_boundaries(tmp_path: Path) -> None:
+    path = tmp_path / "dynamic"
+    table = b"\x00lib\xff.so\x00first\x00last"
+    entries = [(1, 1), (15, 9), (29, 15), (1, 0), (5, 0x4000), (10, len(table)), (0, 0), (1, 999)]
+    dynamic = b"".join(struct.pack("<qQ", tag, value) for tag, value in entries)
+    path.write_bytes(independent_image([(2, 0, 512, 0, dynamic), (1, 4, 768, 0x4000, table)]))
+    assert elf.dependencies(path) == ["lib\ufffd.so", ""]
+    assert elf.rpaths(path) == ["first", "last"]
+
+    for addr, size in [(0x3fff, len(table)), (0x4000, len(table) + 1)]:
+        broken = [(1, 1), (5, addr), (10, size), (0, 0)]
+        data = b"".join(struct.pack("<qQ", tag, value) for tag, value in broken)
+        path.write_bytes(independent_image([(2, 0, 512, 0, data), (1, 4, 768, 0x4000, table)]))
+        with pytest.raises(elf.ELFError):
+            elf.dependencies(path)
+
+    for offset in (len(table), 0xffffffffffffffff):
+        broken = [(1, offset), (5, 0x4000), (10, len(table)), (0, 0)]
+        data = b"".join(struct.pack("<qQ", tag, value) for tag, value in broken)
+        path.write_bytes(independent_image([(2, 0, 512, 0, data), (1, 4, 768, 0x4000, table)]))
+        with pytest.raises(elf.ELFError):
+            elf.dependencies(path)
+
+    for entries in ([(1, 0), (10, 3)], [(1, 0), (5, 0x4000)]):
+        data = b"".join(struct.pack("<qQ", tag, value) for tag, value in entries)
+        path.write_bytes(independent_image([(2, 0, 512, 0, data), (1, 4, 768, 0x4000, table)]))
+        with pytest.raises(elf.ELFError):
+            elf.dependencies(path)
+
+    path.write_bytes(independent_image([(2, 0, 512, 0, struct.pack("<qQ", 0x6ffffffb, 0x8000000008000001) + b"tail")]))
+    assert elf.read_header(path).dynamic_flags_1 == (0x8000000008000001,)
+    assert elf.has_bind_now(path)
+    path.write_bytes(independent_image([(2, 0, 512, 0, struct.pack("<qQ", 0x6ffffffb, 1))]))
+    assert elf.has_bind_now(path)
+
+    data = b"".join(struct.pack("<qQ", tag, value) for tag, value in [(1, 0), (10, 1)])
+    path.write_bytes(independent_image([(2, 0, 512, 0, data), (1, 4, 768, 0, b"X")]))
+    with pytest.raises(elf.ELFError):
+        elf.dependencies(path)
+
+    data = b"".join(struct.pack("<qQ", tag, value) for tag, value in [(1, 0), (10, 1)])
+    path.write_bytes(independent_image([(2, 0, 512, 0, data), (1, 4, 768, 1, b"X")]))
+    with pytest.raises(elf.ELFError):
+        elf.dependencies(path)
+
+    data = b"".join(struct.pack("<qQ", tag, value) for tag, value in [(1, 0), (5, 0x4000), (10, 2)])
+    path.write_bytes(independent_image([(2, 0, 512, 0, data), (1, 4, 768, 0x4000, b"X"),
+                                        (0, 0, 769, 0, b"Y")]))
+    with pytest.raises(elf.ELFError):
+        elf.dependencies(path)
+
+
+def test_interpreter_and_hardening_flags(tmp_path: Path) -> None:
+    path = tmp_path / "flags"
+    dynamic = struct.pack("<qQqQ", 30, 0, 0x6ffffffb, 0)
+    image = independent_image([(3, 4, 512, 0, b"/ld\xff\x00ignored"), (2, 0, 544, 0, dynamic),
+                               (0x6474e551, 1, 600, 0, b"")])
+    path.write_bytes(image)
+    assert elf.interpreter(path) == "/ld\ufffd"
+    assert not elf.stack_nx(path)
+    assert not elf.has_relro(path)
+    assert not elf.has_bind_now(path)
+    assert elf.hardening_violations(path, machine=999)[0] == "machine is x86_64, expected 999"
+
+
+def test_note_ranges_preserve_padding_and_ignore_other_notes(tmp_path: Path) -> None:
+    path = tmp_path / "notes"
+    notes = (struct.pack("<III", 4, 3, 3) + b"GNU\x00" + b"abcP"
+             + struct.pack("<III", 4, 2, 1) + b"GNU\x00" + b"deQQ"
+             + struct.pack("<III", 4, 1, 3) + b"XYZ\x00" + b"fRRR"
+             + struct.pack("<III", 4, 5, 3) + b"GNU\x00" + b"12345SSS"
+             + struct.pack("<III", 4, 1, 3) + b"GNUX" + b"zTTT"
+             + struct.pack("<III", 0xffffffff, 0, 3) + b"short")
+    data = independent_image([(4, 4, 512, 0, notes)])
+    path.write_bytes(data)
+    assert elf.build_id_ranges(path) == [(528, 3), (588, 5)]
+    expected = bytearray(data)
+    expected[528:531] = bytes(3)
+    expected[588:593] = bytes(5)
+    assert elf.normalized_bytes(path) == bytes(expected)
+    path.write_bytes(independent_image([(4, 4, 512, 0, bytes(12))]))
+    assert elf.build_id_ranges(path) == []
+    path.write_bytes(independent_image([(4, 4, 512, 0, struct.pack("<III", 4, 0xffffffff, 3) + b"GNU\x00")]))
+    assert elf.build_id_ranges(path) == []
+
+
+def test_empty_segments_and_zero_offset_are_readable(tmp_path: Path) -> None:
+    path = tmp_path / "empty"
+    path.write_bytes(independent_image([(3, 4, 0, 0, b""), (2, 0, 0, 0, b""), (4, 0, 0, 0, b"")]))
+    assert elf.interpreter(path) == ""
+    assert elf.build_id_ranges(path) == []
+    assert elf.dependencies(path) == []
