@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import shutil
 import stat
+import struct
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -69,6 +71,42 @@ def test_dylib_id_and_legacy_version_min(tmp_path: Path) -> None:
     assert (found.platform, found.platform_name, found.minos, found.sdk) == (macho.PLATFORM_MACOS, "macos", "13.5", "14.0")
     assert macho.read_header(path).kind == "dylib"
     assert not macho.read_header(path).pie
+
+
+def string_image_command(command: int, offset: int, tail: bytes) -> bytes:
+    payload = struct.pack("<I", offset) + tail
+    return struct.pack("<II", command, 8 + len(payload)) + payload
+
+
+def test_load_command_strings_preserve_bytes_and_order(tmp_path: Path) -> None:
+    path = tmp_path / "strings"
+    path.write_bytes(macho_image([
+        string_image_command(0x0C, 14, b"xxfirst\x00ignored"),
+        string_image_command(0x8000001C, 12, b"one\x00ignored"),
+        string_image_command(0x80000018, 12, b"bad\xff\x00ignored"),
+        string_image_command(0x0D, 12, b"id\x00ignored"),
+        string_image_command(0x8000001C, 12, b"tail"),
+        string_image_command(0x8000001F, 12, b"\x00ignored"),
+        string_image_command(0x80000023, 15, b"abcZ"),
+        string_image_command(0x0C, 8, b"unused"),
+    ]))
+    assert macho.dependencies(path) == ["first", "bad\ufffd", "", "Z", "\x08"]
+    assert macho.dylib_id(path) == "id"
+    assert macho.rpaths(path) == ["one", "tail"]
+
+
+@pytest.mark.parametrize(
+    ("command", "reader"),
+    [(0x0C, macho.dependencies), (0x0D, macho.dylib_id), (0x8000001C, macho.rpaths)],
+)
+@pytest.mark.parametrize("offset", [7, 16, 17])
+def test_load_command_string_rejects_outside_offsets(
+    tmp_path: Path, command: int, reader: Callable[[Path], object], offset: int
+) -> None:
+    path = tmp_path / "bad-string"
+    path.write_bytes(macho_image([string_image_command(command, offset, b"tail")]))
+    with pytest.raises(macho.MachOError, match=f"string offset {offset} is outside the command"):
+        reader(path)
 
 
 def test_image_without_build_version_has_none(tmp_path: Path) -> None:
