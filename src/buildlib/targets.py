@@ -42,7 +42,8 @@ class Target:
 
     @property
     def is_linux(self) -> bool:
-        return self.family == LINUX_MUSL
+        family = self.family
+        return family == LINUX_MUSL
 
 
 _DARWIN_ARM64 = Target(

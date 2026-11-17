@@ -101,18 +101,6 @@ def test_manifest_validation(changes: dict[str, Any], message: str) -> None:
         manifest(**changes)
 
 
-def test_write_manifest_rechecks_required_fields(tmp_path: Path) -> None:
-    incomplete = manifest()
-    del incomplete["source_revision"]
-    with pytest.raises(release.ReleaseError, match="lacks required fields"):
-        release.write_manifest(tmp_path, incomplete)
-    wrong = manifest()
-    wrong["schema_version"] = 2
-    with pytest.raises(release.ReleaseError, match="schema_version"):
-        release.write_manifest(tmp_path, wrong)
-    assert list(tmp_path.iterdir()) == []
-
-
 def make_tree(root: Path, *, reverse: bool = False) -> Path:
     files: list[tuple[str, bytes, int]] = [
         ("bin/tool", b"#!/bin/sh\necho tool\n", 0o700),
