@@ -5,7 +5,7 @@ repositories share. It implements the [build repository contract](https://github
 
 ## Commands
 
-- `make test` runs pytest; `make lint` runs `ruff check` and `ty check`; `make clean` removes scratch output.
+- `make test` runs pytest; `make lint` runs `ruff check` and `ty check`; `make coverage` reports branch coverage; `make clean` removes scratch output.
 - `uv build` produces the wheel and sdist in `dist/`.
 - Create `.work/tmp` and set `TMPDIR="$PWD/.work/tmp"` for commands that create scratch data.
 
@@ -21,8 +21,9 @@ Deferred work is tracked in [TODO.md](TODO.md).
 
 | Command | Warm cost | Covers |
 | --- | --- | --- |
-| `make test` | 6s | `tests/` (pytest) |
+| `make test` | 7.5s | `tests/` (207 pytest cases) |
 | `make lint` | under 1s | `ruff check`, `ty check` over `src` and `tests` |
+| `make coverage` | 7.5s | All first-party modules, branches and owned Python children; terminal/JSON report under `.work/coverage/`, no threshold |
 
 Public API and the tests that guard it:
 
@@ -34,3 +35,5 @@ Public API and the tests that guard it:
 Consumers: cmake-build, node-build, ffmpeg-build, chromium-build, pi-build, and python-build pin a released wheel. A change to the public API reaches them only through a new release, so their tests are the consumer check before that release.
 
 Performance workload: none. Build scripts call these helpers once per input or asset.
+
+Coverage gaps, fault controls and suite-cost evidence: [coverage record](docs/deslop-coverage.md).

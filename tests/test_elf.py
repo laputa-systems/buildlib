@@ -411,3 +411,19 @@ def test_empty_segments_and_zero_offset_are_readable(tmp_path: Path) -> None:
     assert elf.interpreter(path) == ""
     assert elf.build_id_ranges(path) == []
     assert elf.dependencies(path) == []
+
+
+@pytest.mark.parametrize(("etype", "kind"), [(1, "relocatable"), (0x1234, "type-4660")])
+def test_header_kind_preserves_relocatable_and_unknown_types(tmp_path: Path, etype: int, kind: str) -> None:
+    path = tmp_path / "kind"
+    ident = b"\x7fELF\x02\x01\x01" + bytes(9)
+    path.write_bytes(ident + struct.pack("<HHIQQQIHHHHHH", etype, 62, 1, 0, 0, 0, 0, 64, 56, 0, 0, 0, 0))
+    assert elf.inspect(path)["kind"] == kind
+
+
+def test_zero_length_build_id_at_file_end_preserves_image(tmp_path: Path) -> None:
+    path = tmp_path / "empty-build-id"
+    image = independent_image([(4, 4, 512, 0, struct.pack("<III", 4, 0, 3) + b"GNU\x00")])
+    path.write_bytes(image)
+    assert elf.build_id_ranges(path) == [(528, 0)]
+    assert elf.normalized_bytes(path) == image

@@ -29,6 +29,7 @@ module-name = "buildlib"
 
 [dependency-groups]
 dev = [
+    "coverage==7.17.3",
     "pytest==9.2.0",
     "ruff==0.17.4",
     "ty==0.0.101",
@@ -39,6 +40,16 @@ dev = [
 testpaths = ["tests"]
 pythonpath = ["tests"]
 minversion = "9"
+
+[tool.coverage.run]
+source = ["buildlib"]
+branch = true
+parallel = true
+patch = ["subprocess"]
+data_file = ".work/coverage/.coverage"
+
+[tool.coverage.report]
+show_missing = true
 
 [tool.ty.environment]
 root = ["src", "tests"]

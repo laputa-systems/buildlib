@@ -11,6 +11,18 @@ supported-markers = [
 ]
 
 [[package]]
+name = "coverage"
+version = "7.17.3"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/coverage-7.17.3-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:59c15dcae783ed291da3af6be2e70762322637ac886b19671d12123521cf6ac3" },
+    { url = "https://pypi.17166969.xyz/current/wheels/coverage-7.17.3-cp315-cp315-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:a13a946d8de807d8992e56a09502952d81bfbb4b80204ef77a6a2a38b4ce22be" },
+    { url = "https://pypi.17166969.xyz/current/wheels/coverage-7.17.3-cp315-cp315-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:c769e6a28bb645c915449ed8ddf6059765a72d8ef79590bfd6202022a4441cd3" },
+    { url = "https://pypi.17166969.xyz/current/wheels/coverage-7.17.3-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:228f4bcecadcbb1ec3ed088b0595c5c08f3fca01406b72e8a02209a3af16aff9" },
+    { url = "https://pypi.17166969.xyz/current/wheels/coverage-7.17.3-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:24389d7d50f1fe98ac8d8ec1c946656a75b97d953b51a714484e174ed9f48eb1" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.3.1"
 source = { registry = "https://pypi.17166969.xyz/current/simple/" }
@@ -25,6 +37,7 @@ source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "coverage" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
@@ -35,6 +48,7 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "coverage", specifier = "==7.17.3" },
     { name = "pytest", specifier = "==9.2.0" },
     { name = "ruff", specifier = "==0.17.4" },
     { name = "ty", specifier = "==0.0.101" },
