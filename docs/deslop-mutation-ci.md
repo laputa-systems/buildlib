@@ -66,9 +66,10 @@ In a disposable copy of `src` and `tests`, remove the whole
 `test_write_manifest_rechecks_required_fields` function from
 `tests/test_release.py`. In `src/buildlib/targets.py`, change the already tested
 `return self.family == LINUX_MUSL` expression to
-`return LINUX_MUSL == self.family`. The current ordinary suite on that copy
-passes 206 cases. The selector for those two paths prints all four critical
-modules **and** `src/buildlib/targets.py`. The release scenario then fails
+`family = self.family` followed by `return family == LINUX_MUSL`. The
+current ordinary suite on that copy passes 206 cases, and Ruff and ty pass.
+The selector prints all four critical modules and `src/buildlib/targets.py`.
+The release scenario then fails
 with 313 killed and 18 survivors: four newly surviving release identities are
 `buildlib.release.x_build_manifest__mutmut_14`,
 `buildlib.release.x_write_manifest__mutmut_1`, `__mutmut_3`, and `__mutmut_7`
@@ -88,7 +89,9 @@ PYTHONPATH="$PWD/.work/tmp/negative-control/src:$PWD/.work/tmp/negative-control/
 uv run --locked python -c 'import pathlib,sys,time,tomllib; sys.path.insert(0,"scripts"); import mutants_gate as g; g.ROOT=pathlib.Path(".work/tmp/negative-control").resolve(); selected=g.select({"tests/test_release.py":"M","src/buildlib/targets.py":"M"}); print("selected union:",*sorted(selected),flush=True); g.run_module("src/buildlib/release.py",tomllib.loads((g.ROOT/".mutants-gate.toml").read_text()),time.monotonic()+1200)'
 ```
 
-The first exits 0; the second exits 1 on the four release survivors above.
+The pytest command exits 0; `ruff check src tests` and `ty check` from the
+fixture directory also exit 0. The mutation command exits 1 on the four release
+survivors above.
 This local fixture exercises the selector and module runner; it is not a
 claim about remote PR selection or a completed CI qualification.
 
