@@ -59,8 +59,12 @@ def test_native_target_maps_host_spellings(system: str, machine: str, triple: st
 
 @pytest.mark.parametrize(("system", "machine"), [("Darwin", "x86_64"), ("Windows", "AMD64"), ("Linux", "riscv64")])
 def test_native_target_rejects_unsupported_hosts(system: str, machine: str) -> None:
-    with pytest.raises(targets.UnsupportedTargetError):
+    with pytest.raises(targets.UnsupportedTargetError) as error:
         targets.native_target(system, machine)
+    assert str(error.value) == (
+        f"no target for host {system} {machine}; supported: "
+        "['aarch64-apple-darwin', 'aarch64-unknown-linux-musl', 'x86_64-unknown-linux-musl']"
+    )
 
 
 def test_native_target_defaults_to_this_host_or_fails_cleanly() -> None:
