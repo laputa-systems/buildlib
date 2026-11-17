@@ -154,6 +154,30 @@ def test_payload_fields_follow_image_byte_order(
     assert macho.rpaths(path) == ["@loader_path/lib", "@executable_path/plugins"]
 
 
+@pytest.mark.parametrize(
+    ("count", "table_size", "body"),
+    [(1, 4, struct.pack("<II", 0x7777, 8)),
+     (1, 8, struct.pack("<II", 0x7777, 16)),
+     (2, 8, struct.pack("<II", 0x7777, 8))],
+)
+def test_load_commands_respects_declared_table_extent(
+    tmp_path: Path, count: int, table_size: int, body: bytes
+) -> None:
+    path = tmp_path / "command-table"
+    path.write_bytes(struct.pack("<IiiIIII", 0xfeedface, 7, 0, 2, count, table_size, 0) + body)
+    with pytest.raises(macho.MachOError):
+        macho.load_commands(path)
+
+
+def test_load_commands_keeps_unknown_commands_and_ignores_non_table_tail(tmp_path: Path) -> None:
+    path = tmp_path / "command-table"
+    path.write_bytes(struct.pack("<IiiIIII", 0xfeedface, 7, 0, 2, 1, 8, 0)
+                     + struct.pack("<II", 0x7777, 8) + b"outside table")
+    assert macho.load_commands(path) == [macho.LoadCommand(0x7777, b"", 28)]
+    path.write_bytes(struct.pack("<IiiIIII", 0xfeedface, 7, 0, 2, 0, 0, 0) + b"outside table")
+    assert macho.load_commands(path) == []
+
+
 def test_is_macho_and_find_machos_ignore_other_files_and_symlinks(tmp_path: Path) -> None:
     (tmp_path / "bin").mkdir()
     image = tmp_path / "bin" / "tool"
