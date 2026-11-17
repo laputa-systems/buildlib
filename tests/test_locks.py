@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+import urllib.request
 from collections.abc import Iterator
 from dataclasses import FrozenInstanceError
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -65,6 +66,21 @@ def test_load_sources_reads_the_contract_example(tmp_path: Path) -> None:
     with pytest.raises(FrozenInstanceError):
         setattr(first, field_name, "other")
     assert hash(first) == hash(first)
+
+
+def test_load_sources_reads_utf8_independent_of_locale(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "sources.lock.json"
+    path.write_bytes(json.dumps(sources(entry(name="café")), ensure_ascii=False).encode("utf-8"))
+    real_read_text = Path.read_text
+    encodings: list[str | None] = []
+
+    def read_recording(self: Path, encoding: str | None = None, errors: str | None = None) -> str:
+        encodings.append(encoding)
+        return real_read_text(self, encoding=encoding, errors=errors)
+
+    monkeypatch.setattr(Path, "read_text", read_recording)
+    assert locks.load_sources(path).get("café").name == "café"
+    assert encodings == ["utf-8"]
 
 
 def test_an_empty_input_is_a_valid_pin(tmp_path: Path) -> None:
@@ -181,6 +197,7 @@ class Origin:
     def __init__(self) -> None:
         self.files: dict[str, bytes] = {}
         self.requests: list[str] = []
+        self.user_agents: list[str | None] = []
         self.redirects: dict[str, str] = {}
         self.base = ""
 
@@ -192,6 +209,7 @@ def origin() -> Iterator[Origin]:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             state.requests.append(self.path)
+            state.user_agents.append(self.headers.get("User-Agent"))
             if self.path in state.redirects:
                 self.send_response(302)
                 self.send_header("Location", state.redirects[self.path])
@@ -233,6 +251,36 @@ def test_fetch_downloads_verifies_and_publishes(origin: Origin, tmp_path: Path) 
     assert locks.fetch_input(item(origin, "/a"), destination) == destination
     assert destination.read_bytes() == PAYLOAD
     assert sorted(path.name for path in destination.parent.iterdir()) == ["tarball.tar.xz"]
+
+
+def test_fetch_streams_large_input_with_request_settings(origin: Origin, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = b"abcde" * 300_000
+    origin.files["/large"] = payload
+    pinned = item(origin, "/large", size=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+    real_urlopen = urllib.request.urlopen
+    timeouts: list[Any] = []
+    reads: list[Any] = []
+
+    def open_recording(request: Any, *, timeout: Any = None) -> Any:
+        timeouts.append(timeout)
+        response = real_urlopen(request, timeout=timeout)
+        real_read = response.read
+
+        def read_recording(size: Any = None) -> Any:
+            reads.append(size)
+            return real_read(size)
+
+        response.read = read_recording
+        return response
+
+    monkeypatch.setattr(urllib.request, "urlopen", open_recording)
+    destination = tmp_path / "large"
+    assert locks.fetch_input(pinned, destination, timeout=7.5) == destination
+    assert destination.read_bytes() == payload
+    assert locks.fetch_input(pinned, tmp_path / "default") == tmp_path / "default"
+    assert origin.user_agents == ["laputa-buildlib/0.1", "laputa-buildlib/0.1"]
+    assert timeouts == [7.5, 120.0]
+    assert reads == [1_048_576] * 6
 
 
 def test_fetch_tries_urls_in_order_and_stops_at_the_first_good_one(origin: Origin, tmp_path: Path) -> None:
