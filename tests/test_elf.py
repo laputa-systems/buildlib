@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import errno
+import os
+import select
+import signal
 import struct
+import time
 from pathlib import Path
 
 import pytest
@@ -13,7 +18,6 @@ def write(tmp_path: Path, name: str, **options) -> Path:
     path = tmp_path / name
     path.write_bytes(elf_image(**options))
     return path
-
 
 
 def test_header_and_program_headers_preserve_unsigned_fields_and_order(tmp_path: Path) -> None:
@@ -45,6 +49,59 @@ def test_empty_program_table_does_not_read_its_offset(tmp_path: Path) -> None:
     assert elf.program_headers(path) == []
 
 
+def test_header_from_fifo_finishes_before_writer_closes(tmp_path: Path) -> None:
+    image = (b"\x7fELF\x02\x01\x01" + bytes(9)
+             + struct.pack("<HHIQQQIHHHHHH", 1, 62, 1, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0))
+    regular = tmp_path / "regular"
+    regular.write_bytes(image)
+    assert elf.read_header(regular) == elf.ELFHeader(regular, 1, 62, 0, 0, (), ())
+
+    fifo = tmp_path / "image.fifo"
+    os.mkfifo(fifo)
+    read_fd, write_fd = os.pipe()
+    child = os.fork()
+    if child == 0:
+        os.close(read_fd)
+        try:
+            os.write(write_fd, b"R")
+            result = elf.read_header(fifo)
+            message = b"1" if result == elf.ELFHeader(fifo, 1, 62, 0, 0, (), ()) else b"wrong header"
+            os.write(write_fd, message)
+        except BaseException as exc:
+            os.write(write_fd, repr(exc).encode())
+        finally:
+            os.close(write_fd)
+            os._exit(0)
+
+    os.close(write_fd)
+    producer = None
+    deadline = time.monotonic() + 3
+    try:
+        ready, _, _ = select.select([read_fd], [], [], max(0, deadline - time.monotonic()))
+        assert ready, "consumer did not start"
+        assert os.read(read_fd, 1) == b"R", "consumer did not send its marker"
+        while producer is None and time.monotonic() < deadline:
+            try:
+                producer = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+            except OSError as exc:
+                if exc.errno != errno.ENXIO:
+                    raise
+                select.select([], [], [], min(0.01, max(0, deadline - time.monotonic())))
+        assert producer is not None, "consumer did not open FIFO"
+        assert os.write(producer, image) == len(image)
+        ready, _, _ = select.select([read_fd], [], [], max(0, deadline - time.monotonic()))
+        assert ready, "consumer waited for writer EOF"
+        assert os.read(read_fd, 256) == b"1", "consumer returned an incorrect header"
+    finally:
+        if producer is not None:
+            os.close(producer)
+        os.close(read_fd)
+        pid, _ = os.waitpid(child, os.WNOHANG)
+        if not pid:
+            os.kill(child, signal.SIGKILL)
+            os.waitpid(child, 0)
+
+
 def test_public_header_readers_reject_independent_malformed_images(tmp_path: Path) -> None:
     valid = (b"\x7fELF\x02\x01\x01" + bytes(9)
              + struct.pack("<HHIQQQIHHHHHH", 1, 62, 1, 0, 64, 0, 0, 64, 56, 0, 0, 0, 0))
@@ -63,6 +120,7 @@ def test_public_header_readers_reject_independent_malformed_images(tmp_path: Pat
         for reader in (elf.read_header, elf.program_headers):
             with pytest.raises(elf.ELFError):
                 reader(path)
+
 
 def test_inspect_reports_a_hardened_musl_executable(tmp_path: Path) -> None:
     path = write(tmp_path, "tool", needed=("libc.musl-x86_64.so.1",), runpath="$ORIGIN/../lib")
