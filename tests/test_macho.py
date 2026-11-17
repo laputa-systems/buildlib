@@ -117,6 +117,43 @@ def test_image_without_build_version_has_none(tmp_path: Path) -> None:
     assert macho.load_commands(path) == []
 
 
+@pytest.mark.parametrize("endian", ["<", ">"])
+@pytest.mark.parametrize("is_64", [False, True])
+@pytest.mark.parametrize("version_command", [0x32, 0x24])
+def test_payload_fields_follow_image_byte_order(
+    tmp_path: Path, endian: str, is_64: bool, version_command: int
+) -> None:
+    def string_command(kind: int, text: bytes, *, dylib: bool) -> bytes:
+        prefix = struct.pack(f"{endian}IIII", 24, 0, 0, 0) if dylib else struct.pack(f"{endian}I", 12)
+        payload = prefix + text + b"\0"
+        size = (8 + len(payload) + 7) & ~7
+        return struct.pack(f"{endian}II", kind, size) + payload + bytes(size - 8 - len(payload))
+
+    version_bytes = (struct.pack(f"{endian}IIIIII", 0x32, 24, 1, 0x000d0500, 0x000e0000, 0)
+                     if version_command == 0x32 else struct.pack(f"{endian}IIII", 0x24, 16, 0x000d0500, 0x000e0000))
+    commands = [
+        version_bytes,
+        string_command(0x0d, b"@rpath/libExample.dylib", dylib=True),
+        string_command(0x0c, b"/usr/lib/libOne.dylib", dylib=True),
+        string_command(0x80000018, b"@rpath/libTwo.dylib", dylib=True),
+        string_command(0x8000001c, b"@loader_path/lib", dylib=False),
+        string_command(0x8000001c, b"@executable_path/plugins", dylib=False),
+    ]
+    cpu = (18 if endian == ">" else 7) | (0x01000000 if is_64 else 0)
+    fields = [0xfeedfacf if is_64 else 0xfeedface, cpu, 0, 6, len(commands), sum(map(len, commands)), 0]
+    if is_64:
+        fields.append(0)
+    image = struct.pack(f"{endian}IiiIIII" + ("I" if is_64 else ""), *fields) + b"".join(commands)
+    path = tmp_path / "byte-order"
+    path.write_bytes(image)
+    assert macho.read_header(path).cputype == cpu
+    assert macho.load_commands(path)[0].payload == version_bytes[8:]
+    assert macho.build_version(path) == macho.BuildVersion(1, "13.5", "14.0")
+    assert macho.dylib_id(path) == "@rpath/libExample.dylib"
+    assert macho.dependencies(path) == ["/usr/lib/libOne.dylib", "@rpath/libTwo.dylib"]
+    assert macho.rpaths(path) == ["@loader_path/lib", "@executable_path/plugins"]
+
+
 def test_is_macho_and_find_machos_ignore_other_files_and_symlinks(tmp_path: Path) -> None:
     (tmp_path / "bin").mkdir()
     image = tmp_path / "bin" / "tool"

@@ -173,6 +173,10 @@ class LoadCommand:
 
 def load_commands(path: Path) -> list[LoadCommand]:
     """Return every load command, in file order."""
+    return _load_commands(path)[1]
+
+
+def _load_commands(path: Path) -> tuple[str, list[LoadCommand]]:
     path = Path(path)
     endian, is_64, fields = _header_fields(path)
     header_size = struct.calcsize(_HEADER_FMT_64 if is_64 else _HEADER_FMT)
@@ -195,7 +199,7 @@ def load_commands(path: Path) -> list[LoadCommand]:
                         offset=header_size + offset)
         )
         offset += cmdsize
-    return commands
+    return endian, commands
 
 
 _LC_HEADER_SIZE = 8
@@ -226,12 +230,13 @@ def _fields(path: Path, command: LoadCommand, fmt: str) -> tuple[int, ...]:
 
 def build_version(path: Path) -> BuildVersion | None:
     """The `LC_BUILD_VERSION` (or legacy `LC_VERSION_MIN_MACOSX`) floor, if present."""
-    for command in load_commands(path):
+    endian, commands = _load_commands(path)
+    for command in commands:
         if command.cmd == LC_BUILD_VERSION:
-            platform, minos, sdk = _fields(path, command, "<III")
+            platform, minos, sdk = _fields(path, command, f"{endian}III")
             return BuildVersion(platform, format_version(minos), format_version(sdk))
         if command.cmd == LC_VERSION_MIN_MACOSX:
-            version, sdk = _fields(path, command, "<II")
+            version, sdk = _fields(path, command, f"{endian}II")
             return BuildVersion(PLATFORM_MACOS, format_version(version), format_version(sdk))
     return None
 
@@ -239,18 +244,20 @@ def build_version(path: Path) -> BuildVersion | None:
 def dependencies(path: Path) -> list[str]:
     """Every library this image loads by name (LC_LOAD_DYLIB and friends)."""
     names = []
-    for command in load_commands(path):
+    endian, commands = _load_commands(path)
+    for command in commands:
         if command.cmd in _DEPENDENCY_COMMANDS:
-            (offset,) = _fields(path, command, "<I")
+            (offset,) = _fields(path, command, f"{endian}I")
             names.append(_string_at(command.payload, offset))
     return names
 
 
 def dylib_id(path: Path) -> str | None:
     """This image's own install name, for a dylib (LC_ID_DYLIB)."""
-    for command in load_commands(path):
+    endian, commands = _load_commands(path)
+    for command in commands:
         if command.cmd == LC_ID_DYLIB:
-            (offset,) = _fields(path, command, "<I")
+            (offset,) = _fields(path, command, f"{endian}I")
             return _string_at(command.payload, offset)
     return None
 
@@ -258,9 +265,10 @@ def dylib_id(path: Path) -> str | None:
 def rpaths(path: Path) -> list[str]:
     """Every LC_RPATH search path, in file order."""
     found = []
-    for command in load_commands(path):
+    endian, commands = _load_commands(path)
+    for command in commands:
         if command.cmd == LC_RPATH:
-            (offset,) = _fields(path, command, "<I")
+            (offset,) = _fields(path, command, f"{endian}I")
             found.append(_string_at(command.payload, offset))
     return found
 
