@@ -6,6 +6,7 @@ import lzma
 import os
 import shutil
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 from typing import Any
@@ -322,3 +323,84 @@ def test_archive_rejects_unreadable_directory_without_replacing_archive(tmp_path
         directory.chmod(0o755)
     release.create_archive(tree, destination, mtime=EPOCH)
     assert destination.read_bytes() == original
+
+
+def test_manifest_has_canonical_complete_bytes(tmp_path: Path) -> None:
+    built = manifest(extra={"z": ("caf\u00e9", {"b": 2, "a": 1}), "a": None})
+    path = release.write_manifest(tmp_path, built)
+    expected = (
+        '{\n  "schema_version": 1,\n  "product": "cpython",\n  "version": "3.15.1",\n'
+        '  "target": "aarch64-apple-darwin",\n'
+        f'  "source_revision": "{REVISION}",\n  "sources_lock_sha256": "{LOCK_SHA}",\n'
+        '  "a": null,\n  "z": [\n    "caf\\u00e9",\n    {\n      "a": 1,\n      "b": 2\n    }\n  ]\n}\n'
+    )
+    assert path.read_bytes() == expected.encode("ascii")
+
+
+def test_archive_execute_mode_uses_each_execute_bit_only(tmp_path: Path) -> None:
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    for name, mode in [("other-execute", 0o401), ("group-execute", 0o410), ("group-write", 0o420), ("other-write", 0o402)]:
+        path = tree / name
+        path.write_bytes(name.encode())
+        path.chmod(mode)
+    archive = release.create_archive(tree, tmp_path / "modes.tar.xz", mtime=0)
+    with tarfile.open(archive) as tar:
+        assert {member.name: member.mode for member in tar.getmembers()} == {
+            "group-execute": 0o755, "group-write": 0o644,
+            "other-execute": 0o755, "other-write": 0o644,
+        }
+
+
+@pytest.mark.parametrize("prefix", ["", "/absolute", "safe/../escape"])
+def test_archive_refuses_invalid_prefix_before_replacing_output(tmp_path: Path, prefix: str) -> None:
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    archive = tmp_path / "previous.tar.xz"
+    archive.write_bytes(b"previous archive")
+    with pytest.raises(release.ReleaseError):
+        release.create_archive(tree, archive, mtime=0, prefix=prefix)
+    assert archive.read_bytes() == b"previous archive"
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["previous.tar.xz", "tree"]
+
+
+@pytest.mark.parametrize("kind", ["newline", "symlink"])
+def test_checksums_refuse_unsafe_assets_without_replacing_output(tmp_path: Path, kind: str) -> None:
+    directory = release_directory(tmp_path)
+    sums = release.write_sha256sums(directory)
+    previous = sums.read_bytes()
+    if kind == "newline":
+        (directory / "line\nbreak").write_bytes(b"unsafe name")
+    else:
+        (directory / "alias").symlink_to("a.tar.xz")
+    with pytest.raises(release.ReleaseError):
+        release.write_sha256sums(directory)
+    assert sums.read_bytes() == previous
+    with pytest.raises(release.ReleaseError):
+        release.verify_sha256sums(directory)
+
+
+def test_checksum_utf8_reading_is_independent_of_text_locale(tmp_path: Path) -> None:
+    directory = release_directory(tmp_path)
+    (directory / "caf\u00e9.tar.xz").write_bytes(b"unicode asset")
+    release.write_sha256sums(directory)
+    release.verify_sha256sums(directory)
+    code = '''
+import locale
+import sys
+from pathlib import Path
+from buildlib import release
+assert Path(release.__file__).resolve() == Path(sys.argv[2]).resolve()
+assert sys.flags.utf8_mode == 0
+locale.setlocale(locale.LC_CTYPE, "C")
+assert "utf" not in locale.getpreferredencoding(False).lower()
+release.verify_sha256sums(Path(sys.argv[1]))
+print("verified")
+'''
+    environment = dict(os.environ, PYTHONPATH=str(Path(release.__file__).resolve().parents[1]))
+    result = subprocess.run(
+        [sys.executable, "-X", "utf8=0", "-c", code, str(directory), release.__file__],
+        env=environment, capture_output=True, text=True, timeout=10, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "verified\n"
