@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
+import sys
 import threading
 import urllib.request
 from collections.abc import Iterator
@@ -68,19 +71,29 @@ def test_load_sources_reads_the_contract_example(tmp_path: Path) -> None:
     assert hash(first) == hash(first)
 
 
-def test_load_sources_reads_utf8_independent_of_locale(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_sources_reads_utf8_independent_of_locale(tmp_path: Path) -> None:
     path = tmp_path / "sources.lock.json"
     path.write_bytes(json.dumps(sources(entry(name="café")), ensure_ascii=False).encode("utf-8"))
-    real_read_text = Path.read_text
-    encodings: list[str | None] = []
-
-    def read_recording(self: Path, encoding: str | None = None, errors: str | None = None) -> str:
-        encodings.append(encoding)
-        return real_read_text(self, encoding=encoding, errors=errors)
-
-    monkeypatch.setattr(Path, "read_text", read_recording)
     assert locks.load_sources(path).get("café").name == "café"
-    assert encodings == ["utf-8"]
+    code = """
+import locale
+import sys
+from pathlib import Path
+from buildlib import locks
+assert Path(locks.__file__).resolve() == Path(sys.argv[2]).resolve()
+assert sys.flags.utf8_mode == 0
+locale.setlocale(locale.LC_CTYPE, "C")
+assert "utf" not in locale.getpreferredencoding(False).lower()
+assert locks.load_sources(Path(sys.argv[1])).get("café").name == "café"
+print("loaded")
+"""
+    environment = dict(os.environ, PYTHONPATH=str(Path(locks.__file__).resolve().parents[1]))
+    result = subprocess.run(
+        [sys.executable, "-X", "utf8=0", "-c", code, str(path), locks.__file__],
+        env=environment, capture_output=True, text=True, timeout=10, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "loaded\n"
 
 
 def test_an_empty_input_is_a_valid_pin(tmp_path: Path) -> None:
@@ -278,9 +291,11 @@ def test_fetch_streams_large_input_with_request_settings(origin: Origin, tmp_pat
     assert locks.fetch_input(pinned, destination, timeout=7.5) == destination
     assert destination.read_bytes() == payload
     assert locks.fetch_input(pinned, tmp_path / "default") == tmp_path / "default"
+    assert (tmp_path / "default").read_bytes() == payload
     assert origin.user_agents == ["laputa-buildlib/0.1", "laputa-buildlib/0.1"]
     assert timeouts == [7.5, 120.0]
-    assert reads == [1_048_576] * 6
+    assert reads
+    assert all(isinstance(size, int) and 0 < size <= 1_048_576 for size in reads)
 
 
 def test_fetch_tries_urls_in_order_and_stops_at_the_first_good_one(origin: Origin, tmp_path: Path) -> None:

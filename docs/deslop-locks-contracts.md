@@ -2,7 +2,7 @@
 
 Base `545012257d40ee3cd082c6c8a88a3db61aabdcfa`. This slice changes tests only: the runtime API, lock formats, and consumers are unchanged. The contract specifies unique names, ordered URL mirrors, SHA-256, optional size and repository-owned fields in `stuff/docs/build-repos.md:20-49`. The README calls `load_sources`, `get`, and `fetch_input`; node-build also verifies cached files and reads budgets and bootstrap data, and cmake-build uses all three loaders and verification. Fetching protects pinned bytes from an incorrect origin; the owned HTTP test server supplies the network edge. Existing tests retain mirror order, failures, redirects, symlink refusal and atomic replacement checks.
 
-Two new public scenarios check UTF-8 lock reading independent of locale and a 1,500,000-byte download across multiple reads, including the user agent, explicit and default timeout, published bytes and streaming read bound. The first wraps the filesystem read to record its encoding; the second records the request and delegates to a real loopback server. Both use owned temporary files.
+Two new public scenarios check UTF-8 lock reading independent of locale and a 1,500,000-byte download across multiple reads, including the user agent, explicit and default timeout, published bytes and streaming read bound. The first loads the Unicode lock in the parent, then starts an owned child with UTF-8 mode disabled and switches its text locale to C after startup. The child verifies its imported candidate path and non-UTF-8 default encoding before loading the same file. The second records requests and delegates to a real loopback server; read requests must be positive and at most 1 MiB, without requiring a specific chunk sequence. Both use owned temporary files.
 
 ## Fault controls
 
@@ -10,8 +10,8 @@ Copy `src` and `tests` to an isolated scratch tree. Run each named test using `P
 
 | Fault | Test and assertion |
 | --- | --- |
-| `_read_object`: `encoding="utf-8"` to `encoding=None` | `load_sources_reads_utf8_independent_of_locale`: `[None] != ["utf-8"]` |
-| `fetch_input`: pass `None` instead of `timeout` to `_download` | `fetch_streams_large_input_with_request_settings`: `[None, None] != [7.5, 120.0]` |
+| `_read_object`: `encoding="utf-8"` to `encoding=None` | `load_sources_reads_utf8_independent_of_locale`: child exits nonzero with an ASCII `UnicodeDecodeError` on the actual lock input |
+| `_download`: call `response.read(None)` | `fetch_streams_large_input_with_request_settings`: the bounded-read assertion rejects `None` |
 
 ## Mutation recipe
 
@@ -36,10 +36,11 @@ mutmut results --all true
 
 The base run exited 0 in 125.01 seconds: 388 selected identities, 369 killed, 19 survived. The generated package inventory includes other modules and their not-checked results are outside this Scenario, not passes. The historic whole-package inventory and earlier ELF/Mach-O qualification counts are separate evidence, not current locks results. No mutation exclusions were used.
 
-Every final survivor was inspected with `mutmut show`; prefix each suffix with `buildlib.locks.x_`. These dispositions concern diagnostic wording or protocol-equivalent header names, not untested data validation. No survivor was excluded.
+Every final survivor was inspected with `mutmut show`; prefix each suffix with `buildlib.locks.x_`. These dispositions concern diagnostic wording or equivalent codec and header names, not untested data validation. No survivor was excluded.
 
 | Identity suffix | Disposition |
 | --- | --- |
+| `_read_object__mutmut_7` | Equivalent: `UTF-8` and `utf-8` select the same codec. |
 | `_read_object__mutmut_21` | Diagnostic only: decorates the non-object rejection text; the rejection and path remain. |
 | `_urls__mutmut_44`, `_urls__mutmut_45`, `_urls__mutmut_46` | Diagnostic only: changes the missing-host detail; invalid URL rejection and cause remain. |
 | `load_sources__mutmut_12` | Diagnostic only: decorates the non-list rejection text. |
@@ -47,11 +48,12 @@ Every final survivor was inspected with `mutmut show`; prefix each suffix with `
 | `_download__mutmut_7`, `_download__mutmut_8` | Equivalent: HTTP header names are case-insensitive, and `urllib.request.Request` normalizes their case. |
 | `fetch_input__mutmut_24` | Diagnostic only: changes the separator between retained URL failure details. |
 
-The final run exited 0 in 131.41 seconds; `mutmut results --all true` exited 0. It reports 379 killed and 9 survived, with zero untested, timeout, unviable or other selected results. The baseline and final `locks.py.meta` each contain exactly the same 388 identities; each metadata key set exactly equals its raw CLI result names. Thus none is implicitly passed. The nine survivors above comprise two equivalent and seven diagnostic-only changes. The intermediate candidate run before the default-timeout assertion had 378 killed and 10 survived; it is not the final qualification.
+The corrected final run exited 0 in 126.18 seconds; `mutmut results --all true` exited 0. It reports 378 killed and 10 survived, with zero untested, timeout, unviable or other selected results. The baseline and final `locks.py.meta` each contain exactly the same 388 identities; each metadata key set exactly equals its raw CLI result names. Thus none is implicitly passed. The ten survivors above comprise three equivalent and seven diagnostic-only changes. The prior 379-killed, 9-survivor run used an encoding-argument assertion; the equivalent uppercase codec spelling now survives the behavioral locale check.
+
 
 ## Verification and costs
 
-- Source SHA-256: `e4e2968d72a6b6645458c127f775d16a93cd6400515d915826ef1009213c5ccf`; baseline tests SHA-256: `04cb50bfe59e3198bcbd14231627b0ebe21a40acee95a35fd904d0f6e44ef70b`; final tests SHA-256: `8e8be5759707a61554eb623222ff4ee888acb2f606a55cc1d42c264ba9abcc95`.
-- After mutation and fault work stopped, `perf-gate-ready`, `/usr/bin/time -p cpu-guard --cores 2 -- make test`, and immediately `perf-gate-ready -1` exited 0/0/0. CPython 3.15.2 and pytest 9.2.0 ran 195 tests in 6.01 seconds; measured wall time was 6.43 seconds against the historical 193-test, 6.42-second baseline. This meets the 20% or 30-second allowance and is not a speedup claim.
+- Source SHA-256: `e4e2968d72a6b6645458c127f775d16a93cd6400515d915826ef1009213c5ccf`; baseline tests SHA-256: `04cb50bfe59e3198bcbd14231627b0ebe21a40acee95a35fd904d0f6e44ef70b`; final tests SHA-256: `1ee32cafe9df69e2045ecbba47b6cedd8dc32ade8d8fa247a2063c82141711c5`.
+- After mutation and fault work stopped, `perf-gate-ready`, `/usr/bin/time -p cpu-guard --cores 2 -- make test`, and immediately `perf-gate-ready -1` exited 0/0/0. CPython 3.15.2 and pytest 9.2.0 ran 195 tests in 6.04 seconds; measured wall time was 6.41 seconds against the historical 193-test, 6.42-second baseline. This meets the 20% or 30-second allowance and is not a speedup claim.
 - `cpu-guard --cores 2 -- make lint` exited 0: Ruff and ty passed. An earlier lint attempt exited 2 because the recorder's return annotation was narrower than ty could prove; the annotation was corrected and the final Scenario and checks were rerun.
 - No runtime defect was established. Release, package-wide coverage, whole-change selection and CI qualification remain outside this module Scenario.
