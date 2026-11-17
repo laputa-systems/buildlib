@@ -21,7 +21,7 @@ timeout_constant = 5.0
 pythonpath = ["tests"]
 ```
 
-From the worktree, create `.work/tmp/header-fresh`, copy `src` and `tests` there, and write that config. Set `TMPDIR` to the worktree's `.work/tmp` and `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. Acquire `/Users/josh/d/stuff/.work/tmp/mutation.lock` using bounded `mkdir` retries and release only the acquired lock. From the scratch directory run:
+From the worktree, create `.work/tmp/header-fresh`, copy `src` and `tests` there, and write that config. Set `TMPDIR` to the worktree's `.work/tmp` and `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. Acquire `/Users/josh/d/stuff/.work/tmp/mutation.lock` using bounded `mkdir` retries and release only the acquired lock. From the worktree run:
 
 ```sh
 export TMPDIR="$PWD/.work/tmp" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
