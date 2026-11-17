@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import struct
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,55 @@ def write(tmp_path: Path, name: str, **options) -> Path:
     path.write_bytes(elf_image(**options))
     return path
 
+
+
+def test_header_and_program_headers_preserve_unsigned_fields_and_order(tmp_path: Path) -> None:
+    path = tmp_path / "independent"
+    ident = b"\x7fELF\x02\x01\x01" + bytes(9)
+    header = struct.pack("<HHIQQQIHHHHHH", 0xFF01, 0xFF02, 1, 0, 80, 0, 0, 64, 56, 2, 0, 0, 0)
+    first = struct.pack("<IIQQQQQQ", 0x80000001, 0x80000002, 0x8000000000000003,
+                        0x8000000000000004, 5, 6, 0x8000000000000007, 8)
+    second = struct.pack("<IIQQQQQQ", 4, 5, 6, 7, 8, 9, 10, 11)
+    path.write_bytes(ident + header + bytes(16) + first + second)
+
+    result = elf.read_header(path)
+    assert result == elf.ELFHeader(path, 0xFF01, 0xFF02, 80, 2, (0x80000001, 4), ())
+    assert (result.kind, result.arch, result.pie) == ("type-65281", "machine-65282", False)
+    assert elf.program_headers(path) == [
+        elf.ProgramHeader(0x80000001, 0x80000002, 0x8000000000000003, 0x8000000000000004,
+                          6, 0x8000000000000007),
+        elf.ProgramHeader(4, 5, 6, 7, 9, 10),
+    ]
+
+
+def test_empty_program_table_does_not_read_its_offset(tmp_path: Path) -> None:
+    path = tmp_path / "no-program-headers"
+    path.write_bytes(
+        b"\x7fELF\x02\x01\x01" + bytes(9)
+        + struct.pack("<HHIQQQIHHHHHH", 1, 62, 1, 0, 0xFFFFFFFFFFFFFFFF, 0, 0, 64, 0, 0, 0, 0, 0)
+    )
+    assert elf.read_header(path) == elf.ELFHeader(path, 1, 62, 0xFFFFFFFFFFFFFFFF, 0, (), ())
+    assert elf.program_headers(path) == []
+
+
+def test_public_header_readers_reject_independent_malformed_images(tmp_path: Path) -> None:
+    valid = (b"\x7fELF\x02\x01\x01" + bytes(9)
+             + struct.pack("<HHIQQQIHHHHHH", 1, 62, 1, 0, 64, 0, 0, 64, 56, 0, 0, 0, 0))
+    cases = {
+        "short": valid[:-1],
+        "magic": b"BAD!" + valid[4:],
+        "class": valid[:4] + b"\x01" + valid[5:],
+        "byte-order": valid[:5] + b"\x02" + valid[6:],
+        "version": valid[:6] + b"\x02" + valid[7:],
+        "entry-size": valid[:54] + b"\x20\x00\x01\x00" + valid[58:],
+        "truncated-table": valid[:56] + b"\x01\x00" + valid[58:],
+    }
+    for name, image in cases.items():
+        path = tmp_path / name
+        path.write_bytes(image)
+        for reader in (elf.read_header, elf.program_headers):
+            with pytest.raises(elf.ELFError):
+                reader(path)
 
 def test_inspect_reports_a_hardened_musl_executable(tmp_path: Path) -> None:
     path = write(tmp_path, "tool", needed=("libc.musl-x86_64.so.1",), runpath="$ORIGIN/../lib")
