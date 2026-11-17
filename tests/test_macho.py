@@ -4,6 +4,7 @@ import os
 import shutil
 import stat
 import struct
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
@@ -322,3 +323,138 @@ def test_signature_normalization_preserves_preceding_content(tmp_path: Path) -> 
     first.write_bytes(signed(bytes(16), b"S" * 16))
     second.write_bytes(signed(bytes(16), b"S" * 16).replace(b"code", b"diff"))
     assert macho.normalized_bytes(first) != macho.normalized_bytes(second)
+
+
+def literal_macho(
+    commands: list[bytes], *, endian: str = "<", is_64: bool = True,
+    flags: int = 0, tail: bytes = b"",
+) -> bytes:
+    cpu = (18 if endian == ">" else 7) | (0x01000000 if is_64 else 0)
+    fields = [0xfeedfacf if is_64 else 0xfeedface, cpu, -1, 6,
+              len(commands), sum(map(len, commands)), flags]
+    if is_64:
+        fields.append(0)
+    return struct.pack(f"{endian}IiiIIII" + ("I" if is_64 else ""), *fields) + b"".join(commands) + tail
+
+
+@pytest.mark.parametrize("endian", ["<", ">"])
+@pytest.mark.parametrize("is_64", [False, True])
+def test_empty_header_preserves_every_raw_field(tmp_path: Path, endian: str, is_64: bool) -> None:
+    path = tmp_path / "header"
+    path.write_bytes(literal_macho([], endian=endian, is_64=is_64, flags=0x80200000))
+    cpu = (18 if endian == ">" else 7) | (0x01000000 if is_64 else 0)
+    assert macho.read_header(path) == macho.MachOHeader(
+        path=path, magic=0xfeedfacf if is_64 else 0xfeedface, cputype=cpu,
+        cpusubtype=-1, filetype=6, flags=0x80200000, is_64=is_64,
+    )
+    assert macho.load_commands(path) == []
+
+
+@pytest.mark.parametrize("endian", ["<", ">"])
+def test_64_bit_header_requires_reserved_word(tmp_path: Path, endian: str) -> None:
+    path = tmp_path / "header"
+    path.write_bytes(literal_macho([], endian=endian)[:-4])
+    with pytest.raises(macho.MachOError):
+        macho.read_header(path)
+
+
+def test_signature_process_contract_and_output_precedence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script = tmp_path / "codesign"
+    script.write_text(
+        '#!/bin/sh\nprintf "%s" "$X_TEST_STDOUT"\nprintf "%s" "$X_TEST_STDERR" >&2\nexit "$X_TEST_STATUS"\n'
+    )
+    script.chmod(0o700)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    path = tmp_path / "image with spaces"
+    path.write_bytes(b"owned fixture")
+    real_run = subprocess.run
+
+    def bounded_run(
+        args: list[str], *, capture_output: bool, text: bool, timeout: float, check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        assert args[0] == "codesign"
+        assert args[-1] == str(path)
+        assert len(args) == 4
+        assert set(args[1:-1]) == {"--verify", "--strict"}
+        assert capture_output
+        assert text
+        assert not check
+        assert timeout is not None
+        assert 0 < timeout <= 120
+        return real_run(args, capture_output=True, text=True, timeout=timeout, check=check)
+
+    monkeypatch.setattr(macho.subprocess, "run", bounded_run)
+    for status, stderr, stdout, expected in [
+        (0, " valid \n", "ignored", (True, "valid")),
+        (7, " failed \n", "ignored", (False, "failed")),
+        (0, "", " fallback \n", (True, "fallback")),
+        (9, "", "", (False, "")),
+    ]:
+        monkeypatch.setenv("X_TEST_STATUS", str(status))
+        monkeypatch.setenv("X_TEST_STDERR", stderr)
+        monkeypatch.setenv("X_TEST_STDOUT", stdout)
+        assert macho.signature_status(path) == expected
+
+
+@pytest.mark.parametrize("endian", ["<", ">"])
+@pytest.mark.parametrize("is_64", [False, True])
+@pytest.mark.parametrize("gap", [b"", b"CODE"])
+def test_signature_ranges_normalize_exact_bytes(
+    tmp_path: Path, endian: str, is_64: bool, gap: bytes,
+) -> None:
+    path = tmp_path / "metadata"
+    header_size = 32 if is_64 else 28
+    offset = header_size + 40 + len(gap)
+    commands = [struct.pack(f"{endian}II", 0x1b, 24) + bytes(range(16)),
+                struct.pack(f"{endian}IIII", 0x1d, 16, offset, 4)]
+    image = literal_macho(commands, endian=endian, is_64=is_64, tail=gap + b"SIGN")
+    path.write_bytes(image)
+    assert macho.signature_metadata_ranges(path) == [(header_size + 8, 16), (offset, 4)]
+    expected = bytearray(image)
+    expected[header_size + 8:header_size + 24] = bytes(16)
+    expected[offset:offset + 4] = bytes(4)
+    assert macho.normalized_bytes(path) == bytes(expected)
+
+
+@pytest.mark.parametrize(("offset", "size", "tail"), [(71, 5, b"SIGN"), (72, 0, b""), (72, 3, b"SIGN"), (72, 5, b"SIGN")])
+def test_signature_range_refuses_overlap_empty_and_non_tail_data(
+    tmp_path: Path, offset: int, size: int, tail: bytes,
+) -> None:
+    path = tmp_path / "metadata"
+    path.write_bytes(literal_macho([
+        struct.pack("<II", 0x1b, 24) + bytes(16),
+        struct.pack("<IIII", 0x1d, 16, offset, size),
+    ], tail=tail))
+    with pytest.raises(macho.MachOError):
+        macho.signature_metadata_ranges(path)
+
+
+@pytest.mark.parametrize(("kind", "size"), [(0x1b, 0), (0x1b, 8), (0x1b, 24), (0x1d, 0), (0x1d, 4), (0x1d, 16)])
+def test_signature_commands_require_exact_payload_sizes(tmp_path: Path, kind: int, size: int) -> None:
+    path = tmp_path / "metadata"
+    payload = (struct.pack("<II", 40 + size, 4) + bytes(size - 8)) if size >= 8 else bytes(size)
+    path.write_bytes(literal_macho([struct.pack("<II", kind, 8 + size) + payload], tail=b"SIGN"))
+    with pytest.raises(macho.MachOError):
+        macho.signature_metadata_ranges(path)
+
+
+def test_duplicate_signature_is_rejected_even_when_both_ranges_fit(tmp_path: Path) -> None:
+    path = tmp_path / "metadata"
+    command = struct.pack("<IIII", 0x1d, 16, 64, 4)
+    path.write_bytes(literal_macho([command, command], tail=b"SIGN"))
+    with pytest.raises(macho.MachOError):
+        macho.signature_metadata_ranges(path)
+
+
+def test_normalization_refuses_metadata_that_outgrows_read_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "changing-image"
+    path.write_bytes(literal_macho([], tail=bytes(20)))
+    read_ranges = macho.signature_metadata_ranges
+
+    def changed_ranges(image: Path) -> list[tuple[int, int]]:
+        image.write_bytes(literal_macho([struct.pack("<IIII", 0x1d, 16, 53, 8)], tail=b"CODE!SIGNHERE"))
+        return read_ranges(image)
+
+    monkeypatch.setattr(macho, "signature_metadata_ranges", changed_ranges)
+    with pytest.raises(macho.MachOError):
+        macho.normalized_bytes(path)
