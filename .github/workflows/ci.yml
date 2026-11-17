@@ -31,3 +31,34 @@ jobs:
       - run: uv python install 3.15
       - name: test
         run: make test
+
+  mutation:
+    if: github.event_name == 'pull_request'
+    name: mutation (${{ matrix.os }}, ${{ matrix.shard }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 22
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, ubuntu-26.04-arm, macos-15]
+        shard: [elf, macho, locks, release, other]
+    env:
+      PYTHON_CPU_COUNT: '2'
+      BASE: ${{ github.event.pull_request.base.sha }}
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: 0.13.7
+      - run: uv python install 3.15
+      - run: mkdir -p .work/tmp
+      - name: Gate selftests
+        run: TMPDIR="$PWD/.work/tmp" uv run --locked python -m unittest discover -s scripts -p 'test_mutants_gate.py'
+      - name: Mutation gate
+        run: TMPDIR="$PWD/.work/tmp" uv run --locked python scripts/mutants_gate.py "$BASE" "$SHARD"

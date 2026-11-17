@@ -30,6 +30,7 @@ module-name = "buildlib"
 [dependency-groups]
 dev = [
     "coverage==7.17.3",
+    "mutmut==3.8.1",
     "pytest==9.2.0",
     "ruff==0.17.4",
     "ty==0.0.101",
