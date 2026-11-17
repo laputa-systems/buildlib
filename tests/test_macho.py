@@ -458,3 +458,9 @@ def test_normalization_refuses_metadata_that_outgrows_read_snapshot(tmp_path: Pa
     monkeypatch.setattr(macho, "signature_metadata_ranges", changed_ranges)
     with pytest.raises(macho.MachOError):
         macho.normalized_bytes(path)
+
+
+def test_read_header_wraps_unreadable_image_with_original_cause(tmp_path: Path) -> None:
+    with pytest.raises(macho.MachOError) as raised:
+        macho.read_header(tmp_path / "missing")
+    assert isinstance(raised.value.__cause__, FileNotFoundError)
