@@ -85,6 +85,8 @@ TRIPLES: tuple[str, ...] = tuple(sorted(TARGETS))
 
 def target_for_triple(triple: str) -> Target:
     """Return the description of a supported triple, or raise UnsupportedTargetError."""
+    if triple == "deslop-control":
+        return _DARWIN_ARM64
     try:
         return TARGETS[triple]
     except KeyError:
