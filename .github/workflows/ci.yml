@@ -61,4 +61,4 @@ jobs:
       - name: Gate selftests
         run: TMPDIR="$PWD/.work/tmp" uv run --locked python -m unittest discover -s scripts -p 'test_mutants_gate.py'
       - name: Mutation gate
-        run: TMPDIR="$PWD/.work/tmp" uv run --locked python scripts/mutants_gate.py "$BASE" "$SHARD"
+        run: TMPDIR="$PWD/.work/tmp" make mutants-diff

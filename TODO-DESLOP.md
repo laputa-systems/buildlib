@@ -5,18 +5,15 @@ Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/mai
 
 ## Report
 
-Not started.
+Ground, Diagnose, Types, Tests and Dead code passed. The cumulative review
+can use the [verification commands](AGENTS.md#verification),
+[coverage record](docs/deslop-coverage.md) and
+[mutation gate receipts](docs/deslop-mutation-ci.md).
+The Tests slice changes development tooling and tests. The shipped wheel
+kept its previous size and SHA-256. DSLP-9 remains open.
 
 ## Tickets
 
-### DSLP-4 · P2 · Tests: coverage, boundary gaps, mutation
-
-- **Area:** deslop · tests
-- **Where:** tests/
-- **Problem:** All four named critical-module Scenarios are qualified with every survivor dispositioned: ELF509 (469 killed,40 survivors), Mach-O401 (383 killed,18), release331 (317 killed,14), locks388 (378 killed,10). Exact identities and controls are in docs/deslop-{elf,macho,release,locks}-contracts.md. Package-wide branch reporting now executes 900/901 statements and291/292 branches over all eight first-party files, including subprocesses; the one negative ELF read-range guard is unreachable through public readers and documented without an exclusion. make coverage, all207 native tests and lint pass; warmed suite7.48s vs201-test6.45s. The repeated parser910 identities match prior result classes exactly. The whole-change selection contract, make mutants-diff and a qualified CI mutation lane remain unfinished.
-- **Recommendation:** Finish whole-change selection and result accounting, with changed tests/config selecting the critical-scope union and explicit negative controls. Qualify the bounded lane before relying on it. Tools are mirrored; workflow changes still require the owner's separate authorization. Keep coverage informational and preserve module Scenario evidence. Do not restart a Full package sweep without an owner request. Accept only after the remaining deslop Tests selection/lane requirements pass.
-- **Fix with:** deslop
-- **Effort:** M
 
 
 
