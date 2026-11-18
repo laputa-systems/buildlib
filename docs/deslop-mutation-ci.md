@@ -19,9 +19,28 @@ TMPDIR="$PWD/.work/tmp" make mutants-diff BASE=<base-commit> SHARD=release
 
 Run all five shards (`elf`, `macho`, `locks`, `release`, `other`) to cover the
 union. The shared campaign mutation lock and a heavy slot are required for
-local mutation runs. CI runs every shard on all three configured operating-system and architecture pairs; [GitHub documents
-these runner labels and architectures](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Those remote jobs
-and negative controls remain unqualified until the parent runs them.
+local mutation runs. CI runs every shard on all three configured operating-system
+and architecture pairs.
+
+## Hosted qualification
+
+At `aa4211d`, all 17 checks passed. The 15 mutation jobs had a 50-second median,
+a 168-second maximum and 976 runner-seconds in one matrix execution.
+[Positive run](https://github.com/laputa-systems/buildlib/actions/runs/44215400683)
+
+Ordinary test and lint jobs passed on all four controls. The release shard
+reopened the same four identities on all three platforms when a test alone
+was removed and when that deletion was paired with a covered production
+change. The mixed run also selected `src/buildlib/targets.py`.
+[Deletion](https://github.com/laputa-systems/buildlib/pull/25) ·
+[Mixed change](https://github.com/laputa-systems/buildlib/pull/21)
+
+All three `other` shards failed on two survivors from the uncovered branch.
+All docs-only jobs passed and the gate reported an irrelevant empty selection.
+Hosted gate self-tests exercised missing and malformed results, mismatched
+identity sets and exhausted budgets.
+[Uncovered branch](https://github.com/laputa-systems/buildlib/pull/23) ·
+[Docs-only change](https://github.com/laputa-systems/buildlib/pull/24)
 
 Mutmut 3.8.1 and its transitive packages are locked as development-only tools
 on the configured Stuff mirror. The lock adds click 8.5.1, libcst 1.9.0,
@@ -60,7 +79,7 @@ seconds; after binding each disposition to its mutant hash, the final gate
 run gave the same result in 20.12 seconds. The test and lint commands passed
 207 cases and both static checks.
 
-## Negative-control blueprint
+## Reproduce the mixed-change control
 
 In a disposable copy of `src` and `tests`, remove the whole
 `test_write_manifest_rechecks_required_fields` function from
@@ -74,10 +93,8 @@ with 313 killed and 18 survivors: four newly surviving release identities are
 `buildlib.release.x_build_manifest__mutmut_14`,
 `buildlib.release.x_write_manifest__mutmut_1`, `__mutmut_3`, and `__mutmut_7`
 (the last two use the same `buildlib.release.x_write_manifest` prefix).
-The failing identities belong to the removed test's critical module; the
-unrelated production file is not the reason for failure. Restore both files
-before any normal work. The parent still needs to reproduce this as an actual
-throwaway PR and verify all required CI shards.
+The failing identities belong to the removed test's critical module. Restore
+both files before resuming normal work.
 
 Local fixture reproduction: create `.work/tmp/negative-control`, copy `src`
 and `tests` there, make those two edits, and copy `.mutants-gate.toml` there.
