@@ -1,5 +1,10 @@
 # Release module test qualification
 
+The cumulative manifest snapshot repair preserves the 14 dispositions.
+The writer's UTF-8 case alias is now identity 60. Its generated diff
+changes only `encode("utf-8")` to `encode("UTF-8")`. The retained gate
+records the amended release source and generated identity hashes.
+
 Base: `545012257d40ee3cd082c6c8a88a3db61aabdcfa`. This test-only slice guards
 canonical manifest bytes, archive modes and prefixes, and checksum filename
 and encoding rules. Runtime source, public APIs, dependencies and consumers

@@ -86,12 +86,12 @@ survivors = [
 ]
 
 [qualified.release]
-source_sha256 = "56efa13412436adb19e2e49e2ccb46d752b041b9b5c991248f1ce0c9853d0379"
+source_sha256 = "42e5178a81af50c56fbb13e7000b88ec6443954b7a5c7ab706ff9ee3cb56e439"
 survivors = [
   "buildlib.release.x__stem__mutmut_3=c491b77e78e6193f6539cdbd422350d02d25be173ccec9f3a40db33707fe9d63",
   "buildlib.release.x__stem__mutmut_4=644264d33a2f482900efbefb2011fb8e78bb7afdf76549eabab7c2240ce014ce",
   "buildlib.release.x__ordered_object__mutmut_4=b868e4f1b6f8737c58730de6b2b6bdbe49250cbd8700000cd74a1f397008c399",
-  "buildlib.release.x_write_manifest__mutmut_58=a378e2ea898766d2c118a458cc0c895ed1db9a90d4b7beeb9321330c7c03509f",
+  "buildlib.release.x_write_manifest__mutmut_60=c8755c5770433defda59b04a0e4922b362dc43ce103f389b21429aced31bbc12",
   "buildlib.release.x_write_sha256sums__mutmut_20=44ea91681b25125da86b129d5d705d978f815ebdc989d877ec8cfd47723fde36",
   "buildlib.release.x_verify_sha256sums__mutmut_8=fbb50b67d517c55675a54cac7699b4d9dd721ae1b8045565e6dcdfd1e2399f92",
   "buildlib.release.x_verify_sha256sums__mutmut_45=30b3c4cbe541c444de24fe4edb9a7095644fbeb5c914e429cef9a4d5983984d7",
