@@ -5,12 +5,29 @@ Deslop campaign backlog ([plan](https://github.com/laputa-systems/stuff/blob/mai
 
 ## Report
 
-Ground, Diagnose, Types, Tests and Dead code passed. The cumulative review
-can use the [verification commands](AGENTS.md#verification),
+Ground, Diagnose, Types, Tests and Dead code passed. See the
+[verification commands](AGENTS.md#verification),
 [coverage record](docs/deslop-coverage.md) and
 [mutation gate receipts](docs/deslop-mutation-ci.md).
 The Tests slice changes development tooling and tests. The shipped wheel
 kept its previous size and SHA-256. DSLP-9 remains open.
+
+Cumulative review covered `6ef86b9..a749bba` and found that the public
+`write_manifest` could use different product values for its filename and
+body when a mapping changed between reads. A changing mapping now
+regresses this case. Both outputs use the same snapshot.
+
+The local suite passed 208 tests and Ruff and ty passed. With the candidate
+`src` first on `PYTHONPATH`, consumer release tests passed in node-build
+`5deebd8` (10), chromium-build `05b05f7` (3), ffmpeg-build `539141d` (5),
+python-build `b1d8240f7` (1) and pi-build `442f463` (3). The test interpreter
+checked that `buildlib.release.__file__` resolved to the candidate source.
+The PR records the unittest selections.
+
+Retained CI at `a749bba` passed 17 checks across macOS arm64 and Linux
+x86-64 and arm64. All four hosted negative controls are linked from
+[#26](https://github.com/laputa-systems/buildlib/pull/26).
+The wheel version and archive format were outside the cumulative repair.
 
 ## Tickets
 
