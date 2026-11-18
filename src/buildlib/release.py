@@ -110,6 +110,7 @@ def write_manifest(directory: Path | str, manifest: Mapping[str, Any]) -> Path:
     The manifest is re-checked for its required fields; the file is indented JSON with a
     trailing newline and is published atomically.
     """
+    manifest = dict(manifest)
     missing = [key for key in REQUIRED_MANIFEST_FIELDS if key not in manifest]
     if missing:
         raise ReleaseError(f"manifest lacks required fields: {missing}")

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+from collections import UserDict
 from pathlib import Path
 from typing import Any
 
@@ -81,6 +82,20 @@ def test_manifest_bytes_do_not_depend_on_extra_insertion_order(tmp_path: Path) -
     first = release.write_manifest(tmp_path / "a", manifest(extra={"x": {"b": 1, "a": 2}, "y": 3}))
     second = release.write_manifest(tmp_path / "b", manifest(extra={"y": 3, "x": {"a": 2, "b": 1}}))
     assert first.read_bytes() == second.read_bytes()
+
+
+def test_manifest_name_and_body_use_the_same_product(tmp_path: Path) -> None:
+    class ChangingManifest(UserDict[str, release.JSONValue]):
+        def __getitem__(self, key: str) -> release.JSONValue:
+            value = super().__getitem__(key)
+            if key == "product":
+                self.data[key] = "other"
+            return value
+
+    path = release.write_manifest(tmp_path, ChangingManifest(manifest()))
+
+    assert path.name == "cpython-3.15.1-aarch64-apple-darwin.manifest.json"
+    assert json.loads(path.read_bytes())["product"] == "cpython"
 
 
 @pytest.mark.parametrize(
