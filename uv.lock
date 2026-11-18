@@ -11,6 +11,14 @@ supported-markers = [
 ]
 
 [[package]]
+name = "click"
+version = "8.5.1"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/click-8.5.1-py3-none-any.whl", hash = "sha256:8bb5376d2006950386f8c6427613334a2acadc5f559cb80e638d00b4df957e37" },
+]
+
+[[package]]
 name = "coverage"
 version = "7.17.3"
 source = { registry = "https://pypi.17166969.xyz/current/simple/" }
@@ -38,6 +46,7 @@ source = { editable = "." }
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
+    { name = "mutmut" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
@@ -49,10 +58,85 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = "==7.17.3" },
+    { name = "mutmut", specifier = "==3.8.1" },
     { name = "pytest", specifier = "==9.2.0" },
     { name = "ruff", specifier = "==0.17.4" },
     { name = "ty", specifier = "==0.0.101" },
     { name = "uv", specifier = "==0.13.7" },
+]
+
+[[package]]
+name = "libcst"
+version = "1.9.0"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+dependencies = [
+    { name = "pyyaml" },
+]
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/libcst-1.9.0-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:a5068bf6114f6f4d79af7a6c80a28d1deb50441150ea1db13b5458ab34bec159" },
+    { url = "https://pypi.17166969.xyz/current/wheels/libcst-1.9.0-cp315-cp315-manylinux_2_28_aarch64.whl", hash = "sha256:7acfd18adcdd32dcf41ce676cf121002afcbe9ad2c72dc0c18d78465beedc228" },
+    { url = "https://pypi.17166969.xyz/current/wheels/libcst-1.9.0-cp315-cp315-manylinux_2_28_x86_64.whl", hash = "sha256:86361e2b426bd1b403e52375703c8b764e226e571adcb30442510710681edbf0" },
+    { url = "https://pypi.17166969.xyz/current/wheels/libcst-1.9.0-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:8c14abe844bec8b021111b3985474e49f5af799c020e8e40dedcac87c97a40c5" },
+    { url = "https://pypi.17166969.xyz/current/wheels/libcst-1.9.0-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:8930971d2299b7006bb5d10c10038f44efb6da89d5bca2823595e31a9cdb96af" },
+]
+
+[[package]]
+name = "linkify-it-py"
+version = "2.2.0"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/linkify_it_py-2.2.0-py3-none-any.whl", hash = "sha256:3adc40eb5af300b2605fcfdb968c24e1d780a90f1f2221af7c15e5111e94d443" },
+]
+
+[[package]]
+name = "markdown-it-py"
+version = "4.3.0"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+dependencies = [
+    { name = "mdurl" },
+]
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/markdown_it_py-4.3.0-py3-none-any.whl", hash = "sha256:7aa1511a46c39138de78d9eba92ce47e63124d8003fc98b3a351909e04239efa" },
+]
+
+[package.optional-dependencies]
+linkify = [
+    { name = "linkify-it-py" },
+]
+
+[[package]]
+name = "mdit-py-plugins"
+version = "0.7.0"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+dependencies = [
+    { name = "markdown-it-py" },
+]
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/mdit_py_plugins-0.7.0-py3-none-any.whl", hash = "sha256:7f8e30403f3dd8bfe3afcdcbc6e61066d3f2e714167507b9c26eb385ec399353" },
+]
+
+[[package]]
+name = "mdurl"
+version = "0.1.2"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8" },
+]
+
+[[package]]
+name = "mutmut"
+version = "3.8.1"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+dependencies = [
+    { name = "click" },
+    { name = "coverage" },
+    { name = "libcst" },
+    { name = "pytest" },
+    { name = "setproctitle" },
+    { name = "textual" },
+]
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/mutmut-3.8.1-py3-none-any.whl", hash = "sha256:e424d72c0557b6a52a721d9b71e2d18eb9590af746db0bbad50b71e8d4d8ed78" },
 ]
 
 [[package]]
@@ -61,6 +145,14 @@ version = "26.3"
 source = { registry = "https://pypi.17166969.xyz/current/simple/" }
 wheels = [
     { url = "https://pypi.17166969.xyz/current/wheels/packaging-26.3-py3-none-any.whl", hash = "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c" },
+]
+
+[[package]]
+name = "platformdirs"
+version = "4.14.5"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/platformdirs-4.14.5-py3-none-any.whl", hash = "sha256:8e778c6fa421516f4d3369449f8df3b0e1b72c0e0005fe88e3ec772d0a14e750" },
 ]
 
 [[package]]
@@ -94,6 +186,30 @@ wheels = [
 ]
 
 [[package]]
+name = "pyyaml"
+version = "6.0.3"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/pyyaml-6.0.3-cp315-cp315-macosx_15_0_arm64.whl", hash = "sha256:edb94d55d7cd04420f190df381eec4ed5618bde6149a330da8ae25eb138d2d49" },
+    { url = "https://pypi.17166969.xyz/current/wheels/pyyaml-6.0.3-cp315-cp315-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1846e9fcc1a8c0f14acc227a4b15e393cb69fdf446953f37ef1c1394d2825edc" },
+    { url = "https://pypi.17166969.xyz/current/wheels/pyyaml-6.0.3-cp315-cp315-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e45fe134c3c27008ca1ead1985018062e4ea6602ff1cbf81dfff019006277697" },
+    { url = "https://pypi.17166969.xyz/current/wheels/pyyaml-6.0.3-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:925521191a96c6d92bf409520640a98f92d7eaf268467fc6949115d3e66a4b92" },
+    { url = "https://pypi.17166969.xyz/current/wheels/pyyaml-6.0.3-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:3c110e66dc2ccc8d4ca5b5d15436bf2deecae3aae256432c718714229c5cf3f9" },
+]
+
+[[package]]
+name = "rich"
+version = "15.0.0"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+dependencies = [
+    { name = "markdown-it-py" },
+    { name = "pygments" },
+]
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/rich-15.0.0-py3-none-any.whl", hash = "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb" },
+]
+
+[[package]]
 name = "ruff"
 version = "0.17.4"
 source = { registry = "https://pypi.17166969.xyz/current/simple/" }
@@ -105,6 +221,34 @@ wheels = [
 ]
 
 [[package]]
+name = "setproctitle"
+version = "1.3.8"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/setproctitle-1.3.8-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:59239b6e5007b1bec79ef444a390b3bcd59cbcb2686c9910da5a42f1e99f738c" },
+    { url = "https://pypi.17166969.xyz/current/wheels/setproctitle-1.3.8-cp315-cp315-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:38310d9cf94959e39d22fdc0154c66c8bdbadfa790c524b04cb36da6333c7507" },
+    { url = "https://pypi.17166969.xyz/current/wheels/setproctitle-1.3.8-cp315-cp315-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a279b136ed97407209d2dc9c30d1e65405d1a4a06ab162cedd9c4159b51f8f20" },
+    { url = "https://pypi.17166969.xyz/current/wheels/setproctitle-1.3.8-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:f5df0503093ec8c3c7e1da53920e79c62ab653b51b136c4736caa252552a8732" },
+    { url = "https://pypi.17166969.xyz/current/wheels/setproctitle-1.3.8-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:dd3a8fcee7d8a23e44781144830dee97b53ca4e0380bdd2a0e05b13913ce5725" },
+]
+
+[[package]]
+name = "textual"
+version = "8.2.8"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+dependencies = [
+    { name = "markdown-it-py", extra = ["linkify"] },
+    { name = "mdit-py-plugins" },
+    { name = "platformdirs" },
+    { name = "pygments" },
+    { name = "rich" },
+    { name = "typing-extensions" },
+]
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/textual-8.2.8-py3-none-any.whl", hash = "sha256:267375fd402dc8d981457212efa71f0e3365fd17bba144ba9bb3ed7563cb374a" },
+]
+
+[[package]]
 name = "ty"
 version = "0.0.101"
 source = { registry = "https://pypi.17166969.xyz/current/simple/" }
@@ -113,6 +257,14 @@ wheels = [
     { url = "https://pypi.17166969.xyz/current/wheels/ty-0.0.101-py3-none-macosx_11_0_arm64.whl", hash = "sha256:e185325fbd4dd9cabdc504c685f04f59b24f37dec96b2d9e8a8afab5731e1ea1" },
     { url = "https://pypi.17166969.xyz/current/wheels/ty-0.0.101-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:88857d3cb6c9446c41dbb74ee58147e7fae5ce19de206f7dab73ffc0ce6849f9" },
     { url = "https://pypi.17166969.xyz/current/wheels/ty-0.0.101-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e6d912d5593a6abc953b135c7d73d58dbeefb898d7306337ce16bbd88b01a616" },
+]
+
+[[package]]
+name = "typing-extensions"
+version = "4.16.0"
+source = { registry = "https://pypi.17166969.xyz/current/simple/" }
+wheels = [
+    { url = "https://pypi.17166969.xyz/current/wheels/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8" },
 ]
 
 [[package]]

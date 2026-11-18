@@ -1,4 +1,4 @@
-.PHONY: test lint coverage clean
+.PHONY: test lint coverage clean mutants-diff
 
 test:
 	uv run --locked pytest -q
@@ -18,3 +18,8 @@ coverage:
 clean:
 	rm -rf build dist .work/tmp .pytest_cache .ruff_cache
 	find . -name __pycache__ -type d -not -path './.venv/*' -prune -exec rm -rf {} +
+
+# BASE names the comparison commit; SHARD is elf, macho, locks, release, or other.
+mutants-diff:
+	@test -n "$(BASE)" -a -n "$(SHARD)" || { printf '%s\n' 'set BASE and SHARD'; exit 2; }
+	uv run --locked python scripts/mutants_gate.py "$(BASE)" "$(SHARD)"
