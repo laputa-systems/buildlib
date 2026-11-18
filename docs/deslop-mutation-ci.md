@@ -1,5 +1,7 @@
 # Whole-change mutation gate
 
+This paragraph exercises documentation-only change classification.
+
 The PR job classifies every changed path, selects the union of changed Python
 production files and the four critical modules for test, fixture, build, or
 gate changes, and runs five independent shards on Linux x86-64, Linux arm64, and macOS arm64. A production file is selected
