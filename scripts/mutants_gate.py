@@ -15,6 +15,8 @@ import sys
 import tempfile
 import time
 import tomllib
+from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -196,6 +198,30 @@ def qualified_survivors(path, mutant_path, spans_path, prefix, record):
         if actual == digest:
             allowed.add(name)
     return allowed
+
+
+def verify_trial_results(
+    checkout: Path, source: str, prefix: str, record: Mapping[str, object],
+) -> dict[str, int]:
+    if Path(source).is_absolute():
+        raise GateError(f'expected a source path relative to the checkout: {source}')
+    root = checkout.resolve(strict=True)
+    paths = [root / source, *(root / 'mutants' / (source + suffix) for suffix in ('', '.meta', '.spans'))]
+    for path in paths:
+        if not path.is_relative_to(root) or not path.is_file() or path.is_symlink() or path.resolve() != path:
+            raise GateError(f'expected a regular file in the checkout: {path}')
+    original, generated, meta, spans = paths
+    outcomes = read_results(meta, spans, prefix)
+    allowed = qualified_survivors(original, generated, spans, prefix, record)
+    unqualified = [
+        f'{outcome}: {name}'
+        for name, outcome in sorted(outcomes.items())
+        if outcome != 'killed' and not (outcome == 'survived' and name in allowed)
+    ]
+    counts = dict(sorted(Counter(outcomes.values()).items()))
+    if unqualified:
+        raise GateError('unqualified mutation outcomes:\n' + '\n'.join(unqualified) + f'\ncounts: {counts}')
+    return counts
 
 
 def confirm_timeouts(directory, meta, spans, prefix, results, deadline):

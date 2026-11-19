@@ -17,6 +17,7 @@ from mutants_gate import (
     read_results,
     run_command,
     select,
+    verify_trial_results,
 )
 
 
@@ -95,6 +96,34 @@ class ResultsTests(unittest.TestCase):
             self.assertEqual(qualified_survivors(source, mutant, spans, 'buildlib.a.', record), set())
             source.write_bytes(b'different source')
             self.assertEqual(qualified_survivors(source, mutant, spans, 'buildlib.a.', record), set())
+
+    def test_trial_requires_regular_receipts_and_current_mutation_bodies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source = root / 'buildsys' / 'probe.py'
+            generated = root / 'mutants' / 'buildsys' / 'probe.py'
+            meta = generated.with_suffix('.py.meta')
+            spans = generated.with_suffix('.py.spans')
+            source.parent.mkdir()
+            generated.parent.mkdir(parents=True)
+            source.write_bytes(b'original')
+            generated.write_bytes(b'changed mutant\n')
+            name = 'buildsys.probe.x_f__mutmut_1'
+            meta.write_text(json.dumps({'exit_code_by_key': {name: 0}}))
+            spans.write_text(json.dumps({'version': 1, 'spans': {'x_f__mutmut_1': [1, 1]}}))
+            record = {'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+                      'survivors': [name + '=' + hashlib.sha256(generated.read_bytes()).hexdigest()]}
+            args = (root, 'buildsys/probe.py', 'buildsys.probe.', record)
+            self.assertEqual(verify_trial_results(*args), {'survived': 1})
+            with self.assertRaisesRegex(GateError, 'relative to the checkout'):
+                verify_trial_results(root, str(source), 'buildsys.probe.', record)
+            generated.write_bytes(b'altered mutant\n')
+            with self.assertRaisesRegex(GateError, 'survived: buildsys.probe.x_f__mutmut_1'):
+                verify_trial_results(*args)
+            meta.rename(root / 'copied.meta')
+            meta.symlink_to(root / 'copied.meta')
+            with self.assertRaisesRegex(GateError, 'expected a regular file'):
+                verify_trial_results(*args)
 
     def test_timeouts_require_fresh_results(self):
         with tempfile.TemporaryDirectory() as directory:
