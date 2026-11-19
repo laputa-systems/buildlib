@@ -115,6 +115,8 @@ class ResultsTests(unittest.TestCase):
                       'survivors': [name + '=' + hashlib.sha256(generated.read_bytes()).hexdigest()]}
             args = (root, 'buildsys/probe.py', 'buildsys.probe.', record)
             self.assertEqual(verify_trial_results(*args), {'survived': 1})
+            with self.assertRaisesRegex(GateError, 'relative to the checkout'):
+                verify_trial_results(root, str(source), 'buildsys.probe.', record)
             generated.write_bytes(b'altered mutant\n')
             with self.assertRaisesRegex(GateError, 'survived: buildsys.probe.x_f__mutmut_1'):
                 verify_trial_results(*args)

@@ -203,6 +203,8 @@ def qualified_survivors(path, mutant_path, spans_path, prefix, record):
 def verify_trial_results(
     checkout: Path, source: str, prefix: str, record: Mapping[str, object],
 ) -> dict[str, int]:
+    if Path(source).is_absolute():
+        raise GateError(f'expected a source path relative to the checkout: {source}')
     root = checkout.resolve(strict=True)
     paths = [root / source, *(root / 'mutants' / (source + suffix) for suffix in ('', '.meta', '.spans'))]
     for path in paths:
