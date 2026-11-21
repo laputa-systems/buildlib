@@ -60,7 +60,7 @@ def parse_changes(data):
 
 
 def classify(path, status):
-    if (path in GATE or path.startswith('.github/') or path == 'src/buildlib/py.typed' or
+    if (path in GATE or path.startswith(('.github/', 'bootstrap/')) or path == 'src/buildlib/py.typed' or
             ('/' not in path and path.startswith('requirements') and path.endswith(('.in', '.txt')))):
         return 'configuration'
     if path.startswith(('tests/', 'fixtures/')):
@@ -174,6 +174,7 @@ def write_config(directory, multiplier):
     (directory / 'pyproject.toml').write_text(
         '[tool.mutmut]\nsource_paths = ["src"]\n'
         'pytest_add_cli_args_test_selection = ["tests"]\n'
+        'also_copy = ["bootstrap"]\n'
         f'timeout_constant = {5 * multiplier}.0\n'
         f'timeout_multiplier = {15 * multiplier}.0\n'
         '[tool.pytest.ini_options]\npythonpath = ["tests"]\n'
@@ -249,7 +250,7 @@ def run_module(source, config, deadline):
     scratch.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='mutants-gate-', dir=scratch) as temp:
         directory = Path(temp)
-        for tree in ('src', 'tests'):
+        for tree in ('src', 'tests', 'bootstrap'):
             for item in (ROOT / tree).rglob('*'):
                 if item.is_symlink():
                     raise GateError(f'symlink in {tree}: {item}')

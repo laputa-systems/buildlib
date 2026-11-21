@@ -109,7 +109,9 @@ def test_unsupported_host(fixture):
 def test_concurrent_publish_and_offline_cache(fixture):
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(lambda _: run(fixture), range(4)))
-    assert all(result.returncode == 0 and "executed" in result.stdout for result in results)
+    for result in results:
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        assert "executed" in result.stdout, (result.stdout, result.stderr)
     _, _, env, _ = fixture
     curl = Path(env["PATH"].split(":")[0]) / "curl"
     curl.write_text("#!/bin/sh\nexit 1\n")
