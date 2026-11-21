@@ -52,20 +52,22 @@ mkdir -p "$cache"
 cache=$(CDPATH='' cd -- "$cache" && pwd)
 tmp=$(mktemp -d "$cache/.buildlib-run.XXXXXXXX")
 lock=''
-cleanup() { [ -z "$lock" ] || rmdir "$lock"; rm -rf "$tmp"; }
+cleanup() { [ -z "$lock" ] || rm -f "$lock"; rm -rf "$tmp"; }
 trap cleanup 0
 trap 'exit 1' HUP INT TERM
 acquire() {
     lock_path=$cache/.$1.lock
     tries=0
-    until mkdir "$lock_path" 2>/dev/null; do
+    # The shell's noclobber open is O_EXCL. mkdir is not exclusive under every
+    # coreutils: uutils 0.10.0 on Ubuntu 26.04 lets concurrent callers succeed.
+    until (set -C; : > "$lock_path") 2>/dev/null; do
         tries=$((tries + 1))
         [ "$tries" -lt 120 ] || fail 'timed out waiting for cache lock'
         sleep 1
     done
     lock=$lock_path
 }
-release() { rmdir "$lock"; lock=''; }
+release() { rm -f "$lock"; lock=''; }
 download() {
     curl --fail --location --retry 3 --proto '=https' --proto-redir '=https' -o "$tmp/download" "$1"
     if [ -n "$2" ]; then
