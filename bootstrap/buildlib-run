@@ -1,0 +1,156 @@
+#!/bin/sh
+set -eu
+
+fail() { printf 'buildlib-run: %s\n' "$*" >&2; exit 1; }
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+system=$(uname -s)
+machine=$(uname -m)
+loader=''
+case "$system:$machine" in
+    Darwin:arm64) target=aarch64-apple-darwin ;;
+    Linux:x86_64) target=x86_64-unknown-linux-musl; loader=/lib/ld-musl-x86_64.so.1 ;;
+    Linux:aarch64|Linux:arm64) target=aarch64-unknown-linux-musl; loader=/lib/ld-musl-aarch64.so.1 ;;
+    *) fail "unsupported host: $system $machine" ;;
+esac
+python_url='' python_size='' python_sha='' wheel_url='' wheel_sha=''
+uv_url='' uv_size='' uv_sha='' uv_python=''
+while read -r kind a b c d extra; do
+    [ -z "${extra:-}" ] || fail 'invalid lock record'
+    case "$kind" in
+        release|uv_version) ;;
+        uv_python) [ -z "$uv_python" ] || fail 'duplicate uv Python version'; uv_python=$a ;;
+        wheel) [ -z "$wheel_url" ] || fail 'duplicate wheel'; wheel_url=$a; wheel_sha=$b ;;
+        python) if [ "$a" = "$target" ]; then
+            [ -z "$python_url" ] || fail 'duplicate python target'; python_url=$b; python_size=$c; python_sha=$d
+        fi ;;
+        uv) if [ "$a" = "$target" ]; then
+            [ -z "$uv_url" ] || fail 'duplicate uv target'; uv_url=$b; uv_size=$c; uv_sha=$d
+        fi ;;
+        *) fail "invalid lock record: $kind" ;;
+    esac
+done < "$script_dir/python.lock"
+for url in "$python_url" "$wheel_url" "$uv_url"; do
+    case "$url" in https://*) ;; *) fail 'lock URLs must use https' ;; esac
+done
+for size in "$python_size" "$uv_size"; do
+    case "$size" in ''|*[!0-9]*) fail 'invalid archive size' ;; esac
+done
+for digest in "$python_sha" "$wheel_sha" "$uv_sha"; do
+    [ "${#digest}" -eq 64 ] || fail 'invalid sha256'
+    case "$digest" in *[!0-9a-f]*) fail 'invalid sha256' ;; esac
+done
+case "$uv_python" in ''|*[!0-9.]*) fail 'invalid uv Python version' ;; esac
+if command -v sha256sum >/dev/null 2>&1; then
+    hash() { sha256sum "$1" | cut -d ' ' -f 1; }
+elif command -v shasum >/dev/null 2>&1; then
+    hash() { shasum -a 256 "$1" | cut -d ' ' -f 1; }
+else
+    fail 'install sha256sum or shasum'
+fi
+cache=${BUILDLIB_CACHE:-${XDG_CACHE_HOME:-${HOME:?HOME is required}/.cache}/laputa-buildlib}
+mkdir -p "$cache"
+cache=$(CDPATH='' cd -- "$cache" && pwd)
+tmp=$(mktemp -d "$cache/.buildlib-run.XXXXXXXX")
+lock=''
+cleanup() { [ -z "$lock" ] || rmdir "$lock"; rm -rf "$tmp"; }
+trap cleanup 0
+trap 'exit 1' HUP INT TERM
+acquire() {
+    lock_path=$cache/.$1.lock
+    tries=0
+    until mkdir "$lock_path" 2>/dev/null; do
+        tries=$((tries + 1))
+        [ "$tries" -lt 120 ] || fail 'timed out waiting for cache lock'
+        sleep 1
+    done
+    lock=$lock_path
+}
+release() { rmdir "$lock"; lock=''; }
+download() {
+    curl --fail --location --retry 3 --proto '=https' --proto-redir '=https' -o "$tmp/download" "$1"
+    if [ -n "$2" ]; then
+        actual_size=$(wc -c < "$tmp/download" | tr -d ' ')
+        [ "$actual_size" = "$2" ] || fail "archive size mismatch: $actual_size != $2"
+    fi
+    [ "$(hash "$tmp/download")" = "$3" ] || fail 'sha256 mismatch'
+}
+musl_ok() {
+    [ -n "$loader" ] && [ -x "$loader" ] || return 1
+    version=$("$loader" 2>&1 || :)
+    version=$(printf '%s\n' "$version" | awk '$1 == "Version" {print $2; exit}')
+    printf '%s\n' "$version" | awk -F. 'NF == 3 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ {exit !($1 > 1 || ($1 == 1 && ($2 > 2 || ($2 == 2 && $3 >= 5))))} {exit 1}'
+}
+mode=${BUILDLIB_PYTHON:-auto}
+case "$mode" in auto|python-build|uv) ;; *) fail 'BUILDLIB_PYTHON must be python-build or uv' ;; esac
+if [ "$mode" = auto ]; then
+    if [ "$system" = Darwin ] || [ -f /etc/alpine-release ] || musl_ok; then mode='python-build'; else mode=uv; fi
+fi
+if [ "$mode" = python-build ]; then
+    if [ -n "$loader" ] && [ ! -x "$loader" ]; then
+        fail "missing $loader; install musl >= 1.2.5 (Debian 13+/Ubuntu 26.04+: apt-get install musl), or set BUILDLIB_PYTHON=uv"
+    fi
+    acquire "$python_sha"
+    root=$cache/$python_sha
+    if [ ! -d "$root" ]; then
+        download "$python_url" "$python_size" "$python_sha"
+        mkdir "$tmp/install"
+        tar -xJf "$tmp/download" -C "$tmp/install"
+        [ -f "$tmp/install/python/bin/python3.15" ] || fail 'archive lacks python/bin/python3.15'
+        mv "$tmp/install" "$root"
+    fi
+    python=$root/python/bin/python3.15
+    if [ ! -f "$root/.smoke-ok" ]; then
+        if ! (unset PYTHONPATH PYTHONHOME; "$python" -c 'import sys') 2> "$tmp/smoke.err"; then
+            cat "$tmp/smoke.err" >&2
+            message=$(cat "$tmp/smoke.err")
+            case "$message" in
+                *'Error relocating'*|*'symbol not found'*)
+                    if [ "${BUILDLIB_PYTHON:-auto}" = python-build ]; then
+                        printf '%s\n' 'buildlib-run: system musl too old: need >= 1.2.5' >&2
+                        [ -z "$loader" ] || "$loader" 2>&1 || :
+                        exit 1
+                    fi
+                    mode=uv ;;
+                *) fail 'python-build smoke failed' ;;
+            esac
+        else
+            : > "$root/.smoke-ok"
+        fi
+    fi
+    release
+fi
+if [ "$mode" = uv ]; then
+    acquire "$uv_sha"
+    root=$cache/$uv_sha
+    if [ ! -d "$root" ]; then
+        download "$uv_url" "$uv_size" "$uv_sha"
+        mkdir "$tmp/install"
+        tar -xzf "$tmp/download" -C "$tmp/install"
+        set -- "$tmp/install"/uv-*/uv "$@"
+        [ -f "$1" ] || fail 'archive lacks uv executable'
+        mv "$1" "$tmp/install/uv"
+        shift
+        mv "$tmp/install" "$root"
+    fi
+    UV_PYTHON_INSTALL_DIR=$root/python; export UV_PYTHON_INSTALL_DIR
+    UV_NO_CONFIG=1; export UV_NO_CONFIG
+    UV_CACHE_DIR=$root/uv-cache; export UV_CACHE_DIR
+    "$root/uv" python install --no-bin "$uv_python"
+    python=$("$root/uv" python find --managed-python "$uv_python")
+    release
+fi
+printf 'buildlib-run: using %s\n' "$mode" >&2
+acquire "$wheel_sha"
+wheel_dir=$cache/$wheel_sha
+wheel=$wheel_dir/buildlib.whl
+if [ ! -f "$wheel" ] || [ "$(hash "$wheel")" != "$wheel_sha" ]; then
+    download "$wheel_url" '' "$wheel_sha"
+    mkdir -p "$wheel_dir"
+    mv "$tmp/download" "$wheel"
+fi
+release
+rm -rf "$tmp"
+trap - 0 HUP INT TERM
+[ "${1:-}" != -- ] || shift
+PYTHONPATH=$wheel${PYTHONPATH:+:$PYTHONPATH}; export PYTHONPATH
+exec "$python" "$@"

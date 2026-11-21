@@ -40,3 +40,5 @@ default = true
 Then run `uv lock` and commit `uv.lock`. Upgrade by changing the pin.
 
 Licensed under [Apache-2.0](LICENSE). Report problems through [GitHub issues](https://github.com/laputa-systems/buildlib/issues).
+
+To run buildlib without uv or an installed Python 3.15, vendor `bootstrap/` and follow the [bootstrap instructions](docs/bootstrap.md).

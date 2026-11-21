@@ -1,0 +1,10 @@
+release release-6f7c0d46e2eda7f66c705022f1950034045f74d0
+wheel https://pypi.17166969.xyz/current/wheels/laputa_buildlib-0.1.0-py3-none-any.whl edd102a1713c903f93e19b10036983d123dd76fa1b04a0e5f3c5070f00a95383
+python aarch64-apple-darwin https://github.com/laputa-systems/python-build/releases/download/release-6f7c0d46e2eda7f66c705022f1950034045f74d0/cpython-3.15.1-aarch64-apple-darwin.tar.xz 7382296 81b336d7f1813fac0803316c150b67de295880c4eebb22755fb1e186f5bd5ef2
+python aarch64-unknown-linux-musl https://github.com/laputa-systems/python-build/releases/download/release-6f7c0d46e2eda7f66c705022f1950034045f74d0/cpython-3.15.1-aarch64-unknown-linux-musl.tar.xz 8425748 3baf1fbd660807b5b4c08c6c6ee5a7221ac82b2416f88239a4b61107f73fcfa5
+python x86_64-unknown-linux-musl https://github.com/laputa-systems/python-build/releases/download/release-6f7c0d46e2eda7f66c705022f1950034045f74d0/cpython-3.15.1-x86_64-unknown-linux-musl.tar.xz 9313868 9cb15d2b4f1d984063a0102e69e84cec29ee00007e801a4c04e57d144e9e03a2
+uv_version 0.13.7
+uv_python 3.15.2
+uv aarch64-apple-darwin https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-apple-darwin.tar.gz 14347867 81b811b57e4624df7ed3aac148e0359100d9962f3d9dce00aec533dc2e086731
+uv aarch64-unknown-linux-musl https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-unknown-linux-gnu.tar.gz 15896996 71279f8d3c67241e807b9d8db872d1bf541579fb9f08b7d1eb1682196d1e57dc
+uv x86_64-unknown-linux-musl https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-unknown-linux-gnu.tar.gz 16671812 c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83
