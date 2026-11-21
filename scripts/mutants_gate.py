@@ -60,7 +60,7 @@ def parse_changes(data):
 
 
 def classify(path, status):
-    if (path in GATE or path.startswith('.github/') or path == 'src/buildlib/py.typed' or
+    if (path in GATE or path.startswith(('.github/', 'bootstrap/')) or path == 'src/buildlib/py.typed' or
             ('/' not in path and path.startswith('requirements') and path.endswith(('.in', '.txt')))):
         return 'configuration'
     if path.startswith(('tests/', 'fixtures/')):
