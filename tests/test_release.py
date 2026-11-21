@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 from buildlib import release, targets
+from permissions import requires_permission_bits
 
 REVISION = "0123456789abcdef0123456789abcdef01234567"
 LOCK_SHA = hashlib.sha256(b"lock").hexdigest()
@@ -322,6 +323,7 @@ def test_sums_reject_nested_or_unlistable_assets(tmp_path: Path) -> None:
         release.verify_sha256sums(empty)
 
 
+@requires_permission_bits
 def test_archive_rejects_unreadable_directory_without_replacing_archive(tmp_path: Path) -> None:
     tree = make_tree(tmp_path / "tree")
     destination = tmp_path / "p.tar.xz"

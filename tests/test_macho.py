@@ -21,6 +21,7 @@ from binaries import (
     version,
 )
 from buildlib import macho
+from permissions import requires_permission_bits
 
 
 def sample(trailer: bytes = b"\x00" * 64, uuid: bytes = bytes(range(16)), signature_at: int | None = None) -> bytes:
@@ -277,6 +278,7 @@ def test_signature_status_reports_codesign_result(tmp_path: Path, monkeypatch: p
     assert macho.signature_status(image) == (False, "code object is not signed at all")
 
 
+@requires_permission_bits
 @pytest.mark.parametrize("unreadable", ["directory", "file"])
 def test_find_machos_propagates_permission_errors(tmp_path: Path, unreadable: str) -> None:
     directory = tmp_path / "nested"

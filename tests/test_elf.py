@@ -12,6 +12,7 @@ import pytest
 
 from binaries import elf_image
 from buildlib import elf, targets
+from permissions import requires_permission_bits
 
 
 def write(tmp_path: Path, name: str, **options) -> Path:
@@ -276,6 +277,7 @@ def test_unmapped_string_table_is_an_error(tmp_path: Path) -> None:
         elf.dependencies(path)
 
 
+@requires_permission_bits
 @pytest.mark.parametrize("unreadable", ["directory", "file"])
 def test_find_elfs_propagates_permission_errors(tmp_path: Path, unreadable: str) -> None:
     directory = tmp_path / "nested"
