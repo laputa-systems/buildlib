@@ -23,6 +23,24 @@ fetch_input(source, ".work/downloads/Python.tar.xz")
 Budget validation checks the schema version, supported target names, and object-shaped limits.
 Bootstrap validation checks the object and schema version. Repository-specific fields need caller validation.
 
+## Bootstrap shim
+
+A repository that needs Python 3.15 and buildlib on a fresh host, before any Python exists there, vendors the
+[`bootstrap/`](bootstrap) directory and runs its scripts through it:
+
+```sh
+bootstrap/python scripts/setup.py
+```
+
+`bootstrap/python` needs only `sh`, `curl`, `tar`, `awk` and `sha256sum` or `shasum`. It reads `bootstrap/pins`
+(one input per line: kind, target, version, size, SHA-256, URL), checks each download's size and SHA-256 before it
+unpacks it, and runs CPython with the pinned buildlib wheel first on `PYTHONPATH`. On macOS, and on Linux with musl
+1.2.5 or newer, it runs [python-build](https://github.com/laputa-systems/python-build)'s CPython. On glibc that
+needs the distribution's `musl` package (Debian 13, Ubuntu 26.04). With older or missing musl, as on Ubuntu 24.04
+([python-build#19](https://github.com/laputa-systems/python-build/issues/19)), it installs the same CPython version
+through the pinned uv instead. Downloads are cached under `${XDG_CACHE_HOME:-~/.cache}/buildlib-bootstrap`. Update a
+vendored copy by copying the directory again.
+
 ## Pinning
 
 The package is published to the stuff PyPI registry. Pin an exact version and point uv at that index

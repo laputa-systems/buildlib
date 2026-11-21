@@ -21,7 +21,7 @@ Deferred work is tracked in [TODO.md](TODO.md).
 
 | Command | Warm cost | Covers |
 | --- | --- | --- |
-| `make test` | 7.5s | `tests/` (207 pytest cases) |
+| `make test` | 7.5s | `tests/` (212 pytest cases) |
 | `make lint` | under 1s | `ruff check`, `ty check` over `src` and `tests` |
 | `make coverage` | 7.5s | All first-party modules, branches and owned Python children; terminal/JSON report under `.work/coverage/`, no threshold |
 
@@ -31,6 +31,7 @@ Public API and the tests that guard it:
 - `release`: asset names, manifest ordering and validation, deterministic archives, and `SHA256SUMS` in `tests/test_release.py`, which also runs `sha256sum -c`.
 - `elf` and `macho`: header decoding, hardening, linkage, and normalization over the byte-built images in `tests/binaries.py`.
 - `targets`: the supported triples and host mapping in `tests/test_targets.py`.
+- `bootstrap/python`: pinned runs, cache reuse, digest rejection and missing pins in `tests/test_bootstrap.py`, over local fake archives. The real pins were proven on Alpine (python-build), Debian 13 with musl (python-build) and Ubuntu 24.04 (uv fallback); rerun those after changing `bootstrap/pins`.
 
 Consumers: cmake-build, node-build, ffmpeg-build, chromium-build, pi-build, and python-build pin a released wheel. A change to the public API reaches them only through a new release, so their tests are the consumer check before that release.
 

@@ -1,0 +1,109 @@
+#!/bin/sh
+# Runs the pinned CPython with laputa-buildlib importable: bootstrap/python ARGS...
+# Needs only sh, curl, tar, awk and sha256sum or shasum. Every download is
+# checked against its size and SHA-256 in ./pins before it is unpacked.
+#
+# On macOS and on Linux with musl 1.2.5 or newer (Alpine, or glibc with the
+# distribution's musl package), it runs laputa-systems/python-build's
+# CPython. Older musl cannot load that build
+# (https://github.com/laputa-systems/python-build/issues/19), so there it
+# installs the same CPython version through the pinned uv, which verifies
+# uv's upstream builds itself. Downloads are cached under
+# ${XDG_CACHE_HOME:-~/.cache}/buildlib-bootstrap.
+set -eu
+
+here=$(cd -- "$(dirname -- "$0")" && pwd)
+pins=$here/pins
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/buildlib-bootstrap
+
+die() {
+    printf 'bootstrap/python: %s\n' "$*" >&2
+    exit 1
+}
+
+case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64) target=aarch64-apple-darwin ;;
+    Linux-x86_64) target=x86_64-unknown-linux-musl ;;
+    Linux-aarch64 | Linux-arm64) target=aarch64-unknown-linux-musl ;;
+    *) die "no pinned Python for $(uname -s) $(uname -m)" ;;
+esac
+
+# pin KIND TARGET: prints "version size sha256 url" for the matching row.
+pin() {
+    row=$(awk -v kind="$1" -v target="$2" '$1 == kind && ($2 == target || $2 == "any") { print $3, $4, $5, $6; exit }' "$pins")
+    [ -n "$row" ] || die "$pins pins no $1 for $2"
+    printf '%s\n' "$row"
+}
+
+sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{ print $1 }'
+    else
+        shasum -a 256 "$1" | awk '{ print $1 }'
+    fi
+}
+
+verified() {
+    [ -f "$1" ] && [ "$(wc -c < "$1" | tr -d ' ')" = "$2" ] && [ "$(sha256 "$1")" = "$3" ]
+}
+
+# fetch SIZE SHA256 URL: prints the path of the verified download.
+fetch() {
+    file=$cache/downloads/$2-${3##*/}
+    if ! verified "$file" "$1" "$2"; then
+        mkdir -p "$cache/downloads"
+        curl -fsSL --retry 3 -o "$file.partial" "$3" || die "download failed: $3"
+        verified "$file.partial" "$1" "$2" || { rm -f "$file.partial"; die "$3 did not serve the pinned size and sha256"; }
+        mv "$file.partial" "$file"
+    fi
+    printf '%s\n' "$file"
+}
+
+# unpack ARCHIVE SHA256: prints the directory the archive was unpacked into.
+unpack() {
+    dir=$cache/$2
+    if [ ! -f "$dir/.unpacked" ]; then
+        rm -rf "$dir"
+        mkdir -p "$dir"
+        tar -xf "$1" -C "$dir" || die "could not unpack $1"
+        : > "$dir/.unpacked"
+    fi
+    printf '%s\n' "$dir"
+}
+
+musl_at_least_1_2_5() {
+    loader=/lib/ld-musl-$(uname -m | sed 's/arm64/aarch64/').so.1
+    [ -x "$loader" ] || return 1
+    "$loader" 2>&1 | awk '/^Version / { split($2, v, "."); ok = v[1] > 1 || (v[1] == 1 && (v[2] > 2 || (v[2] == 2 && v[3] >= 5))) } END { exit !ok }'
+}
+
+row=$(pin cpython "$target") || exit 1
+read -r py_version py_size py_sha py_url <<EOF
+$row
+EOF
+if [ "$target" = aarch64-apple-darwin ] || musl_at_least_1_2_5; then
+    archive=$(fetch "$py_size" "$py_sha" "$py_url") || exit 1
+    python=$(unpack "$archive" "$py_sha")/python/bin/python3 || exit 1
+else
+    row=$(pin uv "$target") || exit 1
+    read -r _ uv_size uv_sha uv_url <<EOF
+$row
+EOF
+    archive=$(fetch "$uv_size" "$uv_sha" "$uv_url") || exit 1
+    uv_dir=$(unpack "$archive" "$uv_sha") || exit 1
+    uv=$(find "$uv_dir" -type f -name uv | head -n 1)
+    [ -n "$uv" ] || die "no uv executable in $uv_url"
+    export UV_PYTHON_INSTALL_DIR="$cache/uv-python" UV_CACHE_DIR="$cache/uv-cache" UV_NO_CONFIG=1
+    "$uv" python install --no-bin --quiet "$py_version" >&2 || die "uv could not install CPython $py_version"
+    python=$("$uv" python find --managed-python "$py_version") || die "uv found no CPython $py_version"
+fi
+[ -x "$python" ] || die "no Python at $python"
+
+row=$(pin buildlib any) || exit 1
+read -r _ wheel_size wheel_sha wheel_url <<EOF
+$row
+EOF
+wheel=$(fetch "$wheel_size" "$wheel_sha" "$wheel_url") || exit 1
+PYTHONPATH=$wheel${PYTHONPATH:+:$PYTHONPATH}
+export PYTHONPATH
+exec "$python" "$@"
