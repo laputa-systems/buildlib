@@ -16,8 +16,12 @@ coverage:
 	uv run --locked coverage json -o .work/coverage/coverage.json
 
 clean:
-	rm -rf build dist .work/tmp .pytest_cache .ruff_cache
-	find . -name __pycache__ -type d -not -path './.venv/*' -prune -exec rm -rf {} +
+	@for artifact in ./build ./dist ./.pytest_cache ./.ruff_cache; do \
+	  if test -L "$$artifact" || { test -e "$$artifact" && ! test -d "$$artifact"; }; then \
+	    printf '%s\n' "make clean: $$artifact must be a local build directory" >&2; exit 1; \
+	  fi; \
+	done
+	rm -rf -- ./build ./dist ./.pytest_cache ./.ruff_cache
 
 # BASE names the comparison commit; SHARD is elf, macho, locks, release, or other.
 mutants-diff:

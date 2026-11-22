@@ -5,7 +5,7 @@ repositories share. It implements the [build repository contract](https://github
 
 ## Commands
 
-- `make test` runs pytest; `make lint` runs `ruff check` and `ty check`; `make coverage` reports branch coverage; `make clean` removes scratch output.
+- `make test` runs pytest; `make lint` runs `ruff check` and `ty check`; `make coverage` reports branch coverage; `make clean` removes the root package outputs and test and lint caches.
 - `uv build` produces the wheel and sdist in `dist/`.
 - Create `.work/tmp` and set `TMPDIR="$PWD/.work/tmp"` for commands that create scratch data.
 
