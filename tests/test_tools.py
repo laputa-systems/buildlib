@@ -975,6 +975,7 @@ def test_cli_lock_install_cache_key(
     monkeypatch.setenv("COLUMNS", "80")
     darwin, musl = "aarch64-apple-darwin", "x86_64-unknown-linux-musl"
     serve_rg(github, triples=(darwin, musl))
+    foreign = darwin if targets.native_target().triple == musl else musl
     lock_path = tmp_path / "tools.lock.json"
     assert cli.main(["tools", "lock", "rg", "--tag", "t9", "--lock", str(lock_path)]) == 0
     captured = capsys.readouterr()
@@ -993,24 +994,24 @@ def test_cli_lock_install_cache_key(
                 "--cache",
                 str(cache),
                 "--target",
-                musl,
+                foreign,
             ]
         )
         == 0
     )
     out = capsys.readouterr().out
     bindir = Path(out.strip())
-    pin = tools.load_lock(lock_path).entry("rg").asset_for(musl)
+    pin = tools.load_lock(lock_path).entry("rg").asset_for(foreign)
     assert out == f"{cache / 'rg' / pin.sha256}\n"
     assert (bindir / "rg").is_file()
     assert bindir.name == pin.sha256
 
     assert (
-        cli.main(["tools", "cache-key", "rg", "--lock", str(lock_path), "--target", musl]) == 0
+        cli.main(["tools", "cache-key", "rg", "--lock", str(lock_path), "--target", foreign]) == 0
     )
     captured = capsys.readouterr()
     assert captured.err == ""
-    assert captured.out == tools.cache_key(lock_path, ["rg"], target=musl) + "\n"
+    assert captured.out == tools.cache_key(lock_path, ["rg"], target=foreign) + "\n"
 
 
 def test_cli_lock_uses_default_lock_path(
