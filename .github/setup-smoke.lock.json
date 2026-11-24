@@ -46,6 +46,29 @@
       "repository": "laputa-systems/gluon",
       "tag": "release-fa8b6aace38683a17ee3f398d8b568341c7192fe",
       "version": ""
+    },
+    "rg": {
+      "assets": {
+        "aarch64-apple-darwin": {
+          "name": "rg-aarch64-apple-darwin.tar.xz",
+          "sha256": "3ade1c9b11ccd437722cc26218db05309d8e391123a20a51928322b73920bfe1",
+          "size": 952212
+        },
+        "aarch64-unknown-linux-musl": {
+          "name": "rg-aarch64-unknown-linux-musl.tar.xz",
+          "sha256": "d525d2ea985e861484a4346266c07a9149903ec09193727f2630956014ee0133",
+          "size": 1184636
+        },
+        "x86_64-unknown-linux-musl": {
+          "name": "rg-x86_64-unknown-linux-musl.tar.xz",
+          "sha256": "be034c84f4991b3295f50e26a3fc82cacedc05b86cecbe9f505eb9d5c804041a",
+          "size": 1476128
+        }
+      },
+      "product": "rg",
+      "repository": "laputa-systems/rg",
+      "tag": "release-ce347a1b5fe381a17d5bee20d594713263073450",
+      "version": ""
     }
   }
 }
