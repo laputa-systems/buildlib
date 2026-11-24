@@ -1,0 +1,43 @@
+name: buildlib setup
+description: Install pinned laputa-owned tools with buildlib from this checkout
+inputs:
+  tools:
+    description: Space-separated tool names from the buildlib tool table
+    required: true
+  lock:
+    description: Path to tools.lock.json
+    default: tools.lock.json
+  cache-dir:
+    description: Directory holding the content-addressed tool cache
+    default: ${{ runner.temp }}/laputa-tools
+runs:
+  using: composite
+  steps:
+    - name: Compute tool cache key
+      id: key
+      shell: bash
+      env:
+        BUILDLIB_LOCK: ${{ inputs.lock }}
+        BUILDLIB_TOOLS: ${{ inputs.tools }}
+      run: |
+        key="$("${{ github.action_path }}/buildlib" tools cache-key --lock "$BUILDLIB_LOCK" $BUILDLIB_TOOLS)"
+        echo "key=$key" >> "$GITHUB_OUTPUT"
+    - name: Restore tool cache
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ inputs.cache-dir }}
+        key: laputa-tools-${{ hashFiles(inputs.lock) }}-${{ steps.key.outputs.key }}
+        restore-keys: laputa-tools-${{ hashFiles(inputs.lock) }}-
+    - name: Install tools
+      shell: bash
+      env:
+        BUILDLIB_LOCK: ${{ inputs.lock }}
+        BUILDLIB_TOOLS: ${{ inputs.tools }}
+        BUILDLIB_CACHE_DIR: ${{ inputs.cache-dir }}
+      run: |
+        set -o pipefail
+        "${{ github.action_path }}/buildlib" tools install $BUILDLIB_TOOLS --lock "$BUILDLIB_LOCK" --cache "$BUILDLIB_CACHE_DIR" |
+          while IFS= read -r dir; do
+            printf '%s\n' "$dir" >> "$GITHUB_PATH"
+          done

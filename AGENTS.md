@@ -33,6 +33,7 @@ Public API and the tests that guard it:
 - `release`: asset names, manifest ordering and validation, deterministic archives, and `SHA256SUMS` in `tests/test_release.py`, which also runs `sha256sum -c`.
 - `elf` and `macho`: header decoding, hardening, linkage, and normalization over the byte-built images in `tests/binaries.py`.
 - `targets`: the supported triples and host mapping in `tests/test_targets.py`.
+- `tools` and `__main__`: lock validation, release-to-entry generation, verified cached installs, and the CLI in `tests/test_tools.py`, which serves fake GitHub releases from memory.
 
 Consumers: cmake-build, node-build, ffmpeg-build, chromium-build, pi-build, and python-build pin a released wheel. A change to the public API reaches them only through a new release, so their tests are the consumer check before that release.
 
