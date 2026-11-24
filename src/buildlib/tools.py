@@ -28,8 +28,8 @@ from . import _atomic, hashing, locks, release, targets
 
 LOCK_SCHEMA = 1
 USER_AGENT = locks.USER_AGENT
+_USER_AGENT_HEADERS = {"User-Agent": USER_AGENT}
 _DOWNLOAD_TIMEOUT = 120.0
-_CHUNK = 1 << 20
 _SUMS_LINE = re.compile(r"([0-9a-f]{64})  (.+)\Z")
 _VERSION = r"[0-9][A-Za-z0-9._+-]*"
 _LOCK_KEYS = frozenset({"repository", "tag", "product", "version", "assets"})
@@ -64,13 +64,11 @@ class ToolSpec:
     def asset_name(self, version: str, triple: str) -> str:
         """The release asset name for `version` on `triple`."""
         target = targets.target_for_triple(triple)
-        if self.layout == "std":
-            return release.archive_name(self.product, version, target.triple)
         if self.layout == "bare":
             return f"{self.product}-{target.triple}.tar.xz"
         if self.layout == "mold":
             return f"{self.product}-{version}-{target.machine}-linux-musl.tar.gz"
-        raise ToolError(f"{self.tool}: unknown asset layout {self.layout!r}")
+        return release.archive_name(self.product, version, target.triple)
 
     def match_asset(self, name: str, triple: str) -> str | None:
         """The version `name` carries for `triple`, or None when it is not this tool's asset."""
@@ -78,14 +76,12 @@ class ToolSpec:
         if self.layout == "bare":
             return "" if name == f"{self.product}-{target.triple}.tar.xz" else None
         product = re.escape(self.product)
-        if self.layout == "std":
-            pattern = rf"^{product}-(?P<version>{_VERSION})-{re.escape(target.triple)}\.tar\.xz$"
-        elif self.layout == "mold":
+        if self.layout == "mold":
             pattern = (
                 rf"^{product}-(?P<version>{_VERSION})-{re.escape(target.machine)}-linux-musl\.tar\.gz$"
             )
         else:
-            raise ToolError(f"{self.tool}: unknown asset layout {self.layout!r}")
+            pattern = rf"^{product}-(?P<version>{_VERSION})-{re.escape(target.triple)}\.tar\.xz$"
         match = re.fullmatch(pattern, name)
         if match is None:
             return None
@@ -94,50 +90,27 @@ class ToolSpec:
         return version
 
 
-def _spec(
-    tool: str,
-    repository: str,
-    product: str,
-    layout: str,
-    *,
-    versioned: bool,
-    checksum_name: str = "SHA256SUMS",
-    prefix: str = "flat",
-    bin_dir: str = "",
-) -> ToolSpec:
-    return ToolSpec(
-        tool=tool,
-        repository=repository,
-        product=product,
-        layout=layout,
-        versioned=versioned,
-        checksum_name=checksum_name,
-        prefix=prefix,
-        bin_dir=bin_dir,
-    )
-
-
 TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
     {
         spec.tool: spec
         for spec in (
-            _spec("gluon", "laputa-systems/gluon", "gluon", "bare", versioned=False),
-            _spec("rg", "laputa-systems/rg", "rg", "bare", versioned=False),
-            _spec("fd", "laputa-systems/fd", "fd", "bare", versioned=False),
-            _spec("jaq", "laputa-systems/jaq", "jaq", "bare", versioned=False),
-            _spec("git", "laputa-systems/git-build", "git", "std", versioned=True),
-            _spec("ssh", "laputa-systems/ssh-build", "ssh", "std", versioned=True),
-            _spec("oxish", "laputa-systems/ssh-build", "oxish", "std", versioned=True, bin_dir="bin"),
-            _spec("cmake", "laputa-systems/cmake-build", "cmake", "std", versioned=True, prefix="top", bin_dir="bin"),
-            _spec("node", "laputa-systems/node-build", "node", "std", versioned=True, prefix="top", bin_dir="bin"),
-            _spec("cpython", "laputa-systems/python-build", "cpython", "std", versioned=True, prefix="top", bin_dir="bin"),
-            _spec("llvm", "laputa-systems/llvm-prebuilt-musl", "llvm", "std", versioned=True, prefix="top", bin_dir="bin"),
-            _spec("llvm-dev", "laputa-systems/llvm-prebuilt-musl", "llvm-dev", "std", versioned=True, prefix="top", bin_dir="bin"),
-            _spec("ffmpeg-runtime", "laputa-systems/ffmpeg-build", "ffmpeg-runtime", "std", versioned=True, prefix="top", bin_dir="bin"),
-            _spec("ffmpeg-tools", "laputa-systems/ffmpeg-build", "ffmpeg-tools", "std", versioned=True, prefix="top", bin_dir="bin"),
-            _spec("ffmpeg-play-sdk", "laputa-systems/ffmpeg-build", "ffmpeg-play-sdk", "std", versioned=True, prefix="top"),
-            _spec("ffmpeg-fixtures", "laputa-systems/ffmpeg-build", "ffmpeg-fixtures", "std", versioned=True, prefix="top", bin_dir="bin"),
-            _spec(
+            ToolSpec("gluon", "laputa-systems/gluon", "gluon", "bare", versioned=False),
+            ToolSpec("rg", "laputa-systems/rg", "rg", "bare", versioned=False),
+            ToolSpec("fd", "laputa-systems/fd", "fd", "bare", versioned=False),
+            ToolSpec("jaq", "laputa-systems/jaq", "jaq", "bare", versioned=False),
+            ToolSpec("git", "laputa-systems/git-build", "git", "std", versioned=True),
+            ToolSpec("ssh", "laputa-systems/ssh-build", "ssh", "std", versioned=True),
+            ToolSpec("oxish", "laputa-systems/ssh-build", "oxish", "std", versioned=True, bin_dir="bin"),
+            ToolSpec("cmake", "laputa-systems/cmake-build", "cmake", "std", versioned=True, prefix="top", bin_dir="bin"),
+            ToolSpec("node", "laputa-systems/node-build", "node", "std", versioned=True, prefix="top", bin_dir="bin"),
+            ToolSpec("cpython", "laputa-systems/python-build", "cpython", "std", versioned=True, prefix="top", bin_dir="bin"),
+            ToolSpec("llvm", "laputa-systems/llvm-prebuilt-musl", "llvm", "std", versioned=True, prefix="top", bin_dir="bin"),
+            ToolSpec("llvm-dev", "laputa-systems/llvm-prebuilt-musl", "llvm-dev", "std", versioned=True, prefix="top", bin_dir="bin"),
+            ToolSpec("ffmpeg-runtime", "laputa-systems/ffmpeg-build", "ffmpeg-runtime", "std", versioned=True, prefix="top", bin_dir="bin"),
+            ToolSpec("ffmpeg-tools", "laputa-systems/ffmpeg-build", "ffmpeg-tools", "std", versioned=True, prefix="top", bin_dir="bin"),
+            ToolSpec("ffmpeg-play-sdk", "laputa-systems/ffmpeg-build", "ffmpeg-play-sdk", "std", versioned=True, prefix="top"),
+            ToolSpec("ffmpeg-fixtures", "laputa-systems/ffmpeg-build", "ffmpeg-fixtures", "std", versioned=True, prefix="top", bin_dir="bin"),
+            ToolSpec(
                 "mold",
                 "joshuarli/mold",
                 "mold",
@@ -187,7 +160,7 @@ class ToolEntry:
             "version": self.version,
             "assets": {
                 triple: {"name": pin.name, "size": pin.size, "sha256": pin.sha256}
-                for triple, pin in sorted(self.assets.items())
+                for triple, pin in self.assets.items()
             },
         }
 
@@ -218,7 +191,7 @@ def spec_for(tool: str) -> ToolSpec:
 def _read_json(path: Path | str) -> tuple[Path, dict[str, Any]]:
     path = Path(path)
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
+        document = json.loads(path.read_bytes())
     except (OSError, UnicodeDecodeError) as error:
         raise locks.LockError(path, f"cannot read: {error}") from error
     except json.JSONDecodeError as error:
@@ -316,18 +289,18 @@ def load_lock(path: Path | str) -> ToolsLock:
 
 
 def _fetch(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    request = urllib.request.Request(url, headers=_USER_AGENT_HEADERS)
     with urllib.request.urlopen(request, timeout=_DOWNLOAD_TIMEOUT) as response:
         return bytes(response.read())
 
 
 def _release_url(repository: str, tag: str, name: str) -> str:
-    base = urllib.parse.quote(f"{repository}/releases/download/{tag}", safe="/.-_")
-    return f"https://github.com/{base}/{urllib.parse.quote(name, safe='')}"
+    base = urllib.parse.quote(f"{repository}/releases/download/{tag}")
+    return f"https://github.com/{base}/{urllib.parse.quote(name)}"
 
 
 def _api_url(repository: str, tag: str) -> str:
-    return f"https://api.github.com/repos/{repository}/releases/tags/{urllib.parse.quote(tag, safe='')}"
+    return f"https://api.github.com/repos/{repository}/releases/tags/{urllib.parse.quote(tag)}"
 
 
 def _parse_sums(text: str, path: Path) -> dict[str, str]:
@@ -357,7 +330,7 @@ def lock_entry(tool: str, tag: str) -> ToolEntry:
         raise ToolError(f"{tool}: tag must be nonempty")
     sums_url = _release_url(spec.repository, tag, spec.checksum_name)
     try:
-        sums_text = _fetch(sums_url).decode("utf-8")
+        sums_text = _fetch(sums_url).decode()
     except (OSError, UnicodeDecodeError) as error:
         raise ToolError(f"{tool}: cannot fetch {sums_url}: {error}") from error
     sums = _parse_sums(sums_text, Path(sums_url))
@@ -387,9 +360,7 @@ def lock_entry(tool: str, tag: str) -> ToolEntry:
         raise ToolError(f"{tool} {tag}: no assets match the tool table in {spec.checksum_name}")
     if len(versions) > 1:
         raise ToolError(f"{tool} {tag}: assets disagree on version: {sorted(versions)}")
-    version = versions.pop() if versions else ""
-    if spec.versioned and not version:
-        raise ToolError(f"{tool} {tag}: versioned tool locked without a version")
+    version = versions.pop()
     return ToolEntry(
         tool=tool,
         repository=spec.repository,
@@ -411,7 +382,7 @@ def write_lock(path: Path | str, entry: ToolEntry) -> ToolsLock:
     document = {"schema": LOCK_SCHEMA, "tools": tools_map}
     text = json.dumps(document, indent=2, sort_keys=True) + "\n"
     with _atomic.atomic_file(path) as handle:
-        handle.write(text.encode("utf-8"))
+        handle.write(text.encode())
     return load_lock(path)
 
 
@@ -439,7 +410,7 @@ def cache_key(lock: ToolsLock | Path | str, tools: list[str], target: str | targ
         pin = entry.asset_for(triple)
         selected.append({"tool": tool, "name": pin.name, "size": pin.size, "sha256": pin.sha256})
     canonical = json.dumps(selected, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def _member_parts(name: str) -> list[str]:
@@ -451,16 +422,8 @@ def _member_parts(name: str) -> list[str]:
     return parts
 
 
-def _inside(root: Path, candidate: Path) -> bool:
-    try:
-        candidate.relative_to(root)
-    except ValueError:
-        return False
-    return True
-
-
 def _check_link(member_dir: str, linkname: str) -> None:
-    if not linkname or "\x00" in linkname or PurePosixPath(linkname).is_absolute():
+    if not linkname or PurePosixPath(linkname).is_absolute():
         raise ToolError(f"unsafe archive link target: {linkname!r}")
     resolved = posixpath.normpath(posixpath.join(member_dir, linkname))
     if resolved == ".." or resolved.startswith("../"):
@@ -470,12 +433,12 @@ def _check_link(member_dir: str, linkname: str) -> None:
 def _extract(archive: Path, destination: Path) -> None:
     """Extract `archive` into `destination`, rejecting escapes and non-file members."""
     try:
-        with tarfile.open(archive, mode="r:*") as tar:
+        with tarfile.open(archive) as tar:
             members = tar.getmembers()
             checked: list[tuple[tarfile.TarInfo, list[str]]] = []
             for member in members:
                 parts = _member_parts(member.name)
-                member_dir = posixpath.dirname("/".join(parts))
+                member_dir = posixpath.dirname(posixpath.join(*parts))
                 if member.issym():
                     _check_link(member_dir, member.linkname)
                 elif not (member.isreg() or member.isdir()):
@@ -483,12 +446,8 @@ def _extract(archive: Path, destination: Path) -> None:
                         f"{archive.name}: unsupported member type {member.type!r} in {member.name!r}"
                     )
                 checked.append((member, parts))
-            root_real = destination.resolve()
             for member, parts in checked:
                 target = destination.joinpath(*parts)
-                parent = target.parent.resolve(strict=False)
-                if parent != root_real and not _inside(root_real, parent):
-                    raise ToolError(f"{archive.name}: member path escapes the root: {member.name!r}")
                 if member.isdir():
                     target.mkdir(parents=True, exist_ok=True)
                     continue
@@ -499,10 +458,9 @@ def _extract(archive: Path, destination: Path) -> None:
                     os.symlink(member.linkname, target)
                     continue
                 source = tar.extractfile(member)
-                if source is None:
-                    raise ToolError(f"{archive.name}: cannot read member {member.name!r}")
+                assert source is not None
                 with source, target.open("wb") as output:
-                    shutil.copyfileobj(source, output, _CHUNK)
+                    shutil.copyfileobj(source, output)
                 target.chmod(member.mode & 0o777 or 0o644)
     except tarfile.TarError as error:
         raise ToolError(f"{archive.name}: not a readable tar archive: {error}") from error
@@ -512,8 +470,6 @@ def _payload(root: Path, spec: ToolSpec) -> Path:
     """The directory `bin_dir` is relative to: the single top-level directory for "top" archives."""
     if spec.prefix == "flat":
         return root
-    if spec.prefix != "top":
-        raise ToolError(f"{spec.tool}: unknown archive prefix {spec.prefix!r}")
     entries = list(root.iterdir())
     if len(entries) != 1 or not entries[0].is_dir() or entries[0].is_symlink():
         raise ToolError(f"{spec.tool}: archive lacks a single top-level directory")
@@ -522,10 +478,26 @@ def _payload(root: Path, spec: ToolSpec) -> Path:
 
 def _bin_dir(payload: Path, spec: ToolSpec) -> Path:
     """The payload-relative directory holding the programs."""
-    candidate = payload / spec.bin_dir if spec.bin_dir else payload
+    candidate = payload / spec.bin_dir
     if not candidate.is_dir():
-        raise ToolError(f"{spec.tool}: archive has no {spec.bin_dir or '.'} directory")
+        raise ToolError(f"{spec.tool}: archive has no {spec.bin_dir} directory")
     return candidate
+
+
+def _publish_binaries(directory: Path, spec: ToolSpec, triple: str) -> None:
+    """Rename bare-archive payloads to their command names.
+
+    A bare release ships the program as `<product>-<triple>`; consumers put the
+    bin directory on PATH, so it must appear as `<product>` and stay executable.
+    """
+    if spec.layout != "bare":
+        return
+    source = directory / f"{spec.product}-{triple}"
+    if not source.is_file() or source.is_symlink():
+        return
+    target = directory / spec.product
+    source.replace(target)
+    target.chmod(0o755)
 
 
 def install(
@@ -547,7 +519,7 @@ def install(
     pin = entry.asset_for(triple)
     cache = Path(cache_dir) / tool
     final = cache / pin.sha256
-    cached = final / spec.bin_dir if spec.bin_dir else final
+    cached = final / spec.bin_dir
     if final.is_symlink() or (final.exists() and not final.is_dir()):
         raise ToolError(f"{tool}: cache path {final} is not a directory")
     if final.is_dir():
@@ -555,7 +527,7 @@ def install(
             return cached
         shutil.rmtree(final)
     cache.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=".install-", dir=cache))
+    staging = Path(tempfile.mkdtemp(dir=cache))
     try:
         archive = staging / pin.name
         item = locks.Input(
@@ -565,22 +537,23 @@ def install(
             urls=(_release_url(entry.repository, entry.tag, pin.name),),
             size=pin.size,
         )
-        locks.fetch_input(item, archive, timeout=_DOWNLOAD_TIMEOUT)
-        tree = staging / "tree"
+        locks.fetch_input(item, archive)
+        tree = staging / pin.sha256
         tree.mkdir()
         _extract(archive, tree)
         payload = _payload(tree, spec)
-        _bin_dir(payload, spec)
+        binaries = _bin_dir(payload, spec)
+        _publish_binaries(binaries, spec, triple)
         if final.exists() or final.is_symlink():
-            shutil.rmtree(staging, ignore_errors=True)
             if final.is_dir() and cached.is_dir():
+                shutil.rmtree(staging)
                 return cached
             raise ToolError(f"{tool}: cache path {final} appeared during install")
         os.rename(payload, final)
     except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
+        shutil.rmtree(staging)
         raise
-    shutil.rmtree(staging, ignore_errors=True)
+    shutil.rmtree(staging)
     return cached
 
 

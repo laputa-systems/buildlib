@@ -36,13 +36,13 @@ def _parser() -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
     install = actions.add_parser("install", help="install tools and print one bin directory per tool")
     install.add_argument("tools", nargs="+", metavar="TOOL", help="tool names from the lock")
     install.add_argument("--lock", required=True, help="tools.lock.json path")
-    install.add_argument("--cache", default=None, help="cache directory (default: ~/.cache/laputa-tools)")
-    install.add_argument("--target", default=None, help="target triple (default: this host)")
+    install.add_argument("--cache", help="cache directory (default: ~/.cache/laputa-tools)")
+    install.add_argument("--target", help="target triple (default: this host)")
 
     key = actions.add_parser("cache-key", help="print a stable digest of the selected lock entries")
     key.add_argument("tools", nargs="+", metavar="TOOL", help="tool names from the lock")
     key.add_argument("--lock", required=True, help="tools.lock.json path")
-    key.add_argument("--target", default=None, help="target triple (default: this host)")
+    key.add_argument("--target", help="target triple (default: this host)")
     return parser, tool_parser
 
 
@@ -74,9 +74,6 @@ def main(argv: list[str] | None = None) -> int:
         elif args.action == "cache-key":
             target = _target_arg(args.target)
             print(tools.cache_key(args.lock, args.tools, target=target))
-        else:
-            parser.print_help()
-            return 0
     except (locks.LockError, locks.FetchError, tools.ToolError, targets.UnsupportedTargetError) as error:
         print(f"buildlib: {error}", file=sys.stderr)
         return 1
