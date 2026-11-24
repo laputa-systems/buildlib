@@ -422,6 +422,14 @@ def _member_parts(name: str) -> list[str]:
     return parts
 
 
+def _inside(root: Path, candidate: Path) -> bool:
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
 def _check_link(member_dir: str, linkname: str) -> None:
     if not linkname or PurePosixPath(linkname).is_absolute():
         raise ToolError(f"unsafe archive link target: {linkname!r}")
@@ -446,8 +454,11 @@ def _extract(archive: Path, destination: Path) -> None:
                         f"{archive.name}: unsupported member type {member.type!r} in {member.name!r}"
                     )
                 checked.append((member, parts))
+            root_real = destination.resolve()
             for member, parts in checked:
                 target = destination.joinpath(*parts)
+                if not _inside(root_real, target.parent.resolve()):
+                    raise ToolError(f"{archive.name}: member path escapes the root: {member.name!r}")
                 if member.isdir():
                     target.mkdir(parents=True, exist_ok=True)
                     continue

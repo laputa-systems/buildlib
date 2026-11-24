@@ -597,6 +597,19 @@ def test_install_rejects_archive_link_targets_exact(github: FakeGitHub, tmp_path
     )
 
 
+def test_install_rejects_members_written_through_escaping_links(github: FakeGitHub, tmp_path: Path) -> None:
+    triple = "aarch64-apple-darwin"
+    root = tmp_path / "inner"
+    root.mkdir()
+    archive = tar_bytes([("s", "link:."), ("a", "link:s/.."), ("a/evil", b"x")])
+    serve(github, "rg", "t1", triple, archive)
+    path = write_lock(root, lock_for("rg", "t1", triple, archive))
+    with pytest.raises(tools.ToolError) as raised:
+        tools.install(path, "rg", root / "cache", target=triple)
+    assert str(raised.value).endswith("member path escapes the root: 'a/evil'")
+    assert not list(tmp_path.rglob("evil"))
+
+
 def test_install_accepts_inside_symlinks(github: FakeGitHub, tmp_path: Path) -> None:
     triple = "aarch64-apple-darwin"
     archive = tar_bytes(
