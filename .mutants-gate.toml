@@ -1,4 +1,4 @@
-# Identity dispositions and reasons: docs/deslop-{elf,macho,locks,release}-contracts.md
+# Identity dispositions and reasons: docs/mutation-dispositions.md
 # Source hash binds these identities to the qualified source.
 budget_seconds = 1200
 

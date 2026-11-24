@@ -38,4 +38,4 @@ Consumers: cmake-build, node-build, ffmpeg-build, chromium-build, pi-build, and 
 
 Performance workload: none. Build scripts call these helpers once per input or asset.
 
-Coverage gaps, fault controls and suite-cost evidence: [coverage record](docs/deslop-coverage.md).
+Mutation gate usage and accepted survivors: [mutation dispositions](docs/mutation-dispositions.md).

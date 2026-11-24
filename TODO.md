@@ -45,4 +45,3 @@ Next: 10
 - **Recommendation:** When representative workloads exist, add the bench-pyramid tiered entrypoint and preflight, pinned inputs and run metadata, interleaved reference comparison with busy-host handling, and separate low-overhead CPU sampling, allocation/RSS and I/O or syscall attribution recipes.
 - **Fix with:** bench-pyramid
 - **Effort:** M
-
