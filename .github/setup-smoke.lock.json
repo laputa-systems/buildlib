@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "tools": {
+    "ffmpeg-runtime": {
+      "assets": {
+        "aarch64-apple-darwin": {
+          "name": "ffmpeg-runtime-9.0.2-aarch64-apple-darwin.tar.xz",
+          "sha256": "380471e07416eb636836d8428e8b2c6bf8052b8df030cff85e4008ccab70369d",
+          "size": 3122496
+        },
+        "aarch64-unknown-linux-musl": {
+          "name": "ffmpeg-runtime-9.0.2-aarch64-unknown-linux-musl.tar.xz",
+          "sha256": "db6364f646b763a7fe2560d38b29e985232c3925ab48347d3a4fa39a94b86549",
+          "size": 3930040
+        },
+        "x86_64-unknown-linux-musl": {
+          "name": "ffmpeg-runtime-9.0.2-x86_64-unknown-linux-musl.tar.xz",
+          "sha256": "9b917fe0939b31430a338b12033d80bac3d32b62777f26ffe44d4a71fc850e65",
+          "size": 4735840
+        }
+      },
+      "product": "ffmpeg-runtime",
+      "repository": "laputa-systems/ffmpeg-build",
+      "tag": "release-ac29c7720327f7dee4ed4677ce8421673fcc3563",
+      "version": "9.0.2"
+    },
+    "gluon": {
+      "assets": {
+        "aarch64-apple-darwin": {
+          "name": "gluon-aarch64-apple-darwin.tar.xz",
+          "sha256": "4c103442555d8e76a5d57bd4d9b4e90fa86e715ffe1a8e23bcbb3a6247618c6e",
+          "size": 860740
+        },
+        "aarch64-unknown-linux-musl": {
+          "name": "gluon-aarch64-unknown-linux-musl.tar.xz",
+          "sha256": "6b352c03399cf41f45ee5d9ff601ea17cf4768f74aff31a164e145e6e2326e56",
+          "size": 831344
+        },
+        "x86_64-unknown-linux-musl": {
+          "name": "gluon-x86_64-unknown-linux-musl.tar.xz",
+          "sha256": "3aacbd8756a4dcfeff9cd139ebcd5a3b4cb2cc433c599b7e21f446c716987ce8",
+          "size": 945204
+        }
+      },
+      "product": "gluon",
+      "repository": "laputa-systems/gluon",
+      "tag": "release-fa8b6aace38683a17ee3f398d8b568341c7192fe",
+      "version": ""
+    }
+  }
+}
