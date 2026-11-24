@@ -3,6 +3,8 @@
 `laputa-buildlib` is the standard-library-only Python package that the laputa-systems build
 repositories share. It implements the [build repository contract](https://github.com/laputa-systems/stuff/blob/main/docs/build-repos.md).
 
+The roadmap, [docs/roadmap.md](docs/roadmap.md), holds all current and future work; its Status is the resume point.
+
 ## Commands
 
 - `make test` runs pytest; `make lint` runs `ruff check` and `ty check`; `make coverage` reports branch coverage; `make clean` removes the root package outputs and test and lint caches.
