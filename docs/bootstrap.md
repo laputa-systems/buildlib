@@ -8,6 +8,8 @@ sh bootstrap/buildlib-run -- -c 'import buildlib.locks, sys; print(sys.version)'
 
 Pass Python arguments after `--`. The script prepends the pinned wheel to `PYTHONPATH` and executes Python. It caches downloads under `${BUILDLIB_CACHE}` if set, or `${XDG_CACHE_HOME:-$HOME/.cache}/laputa-buildlib` otherwise. Keep the cache private to the user running the script.
 
+Set `BUILDLIB_SRC` to a directory containing the `buildlib` package to run that source instead of the wheel; the script then downloads only Python. The setup action uses this so CI runs buildlib from the action checkout without any package registry.
+
 Install `curl`, CA certificates, `tar`, `xz`, and either `sha256sum` or `shasum`. On Linux with musl 1.2.5 or newer, or on Alpine, the script uses python-build. On glibc Linux without a compatible system musl loader, it uses the pinned uv release to install a python-build-standalone interpreter. Ubuntu 24.04's musl 1.2.4 is too old for python-build. Debian 13 and Ubuntu 26.04 provide a suitable loader through `apt-get install musl`. Apple Silicon requires macOS 27 or newer. Linux x86-64 requires the Broadwell CPU baseline for python-build, and Linux ARM64 requires ARMv8-A with crypto extensions.
 
 Set `BUILDLIB_PYTHON=python-build` or `BUILDLIB_PYTHON=uv` to select a path. The script prints its selection to standard error. The python-build path requires `/lib/ld-musl-<arch>.so.1` on Linux. If a python-build smoke test fails with a relocation error, automatic selection falls back to uv. The verified python-build cache remains available.

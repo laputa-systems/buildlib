@@ -1,21 +1,8 @@
 #!/bin/sh
-# Run buildlib from this action's source checkout through bootstrap/buildlib-run.
-# buildlib-run executes a pinned Python 3.15 with the pinned wheel on PYTHONPATH;
-# this wrapper drops that wheel from sys.path so `buildlib` resolves from ../src.
+# BUILDLIB_SRC makes bootstrap/buildlib-run use this checkout instead of downloading the
+# wheel, so CI needs no package registry.
 set -eu
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-src=$(CDPATH='' cd -- "$here/../src" && pwd)
-export BUILDLIB_SRC=$src
-export PYTHONPATH=$src${PYTHONPATH:+:$PYTHONPATH}
-exec "$here/../bootstrap/buildlib-run" -c '
-import os
-import runpy
-import sys
-
-src = os.environ["BUILDLIB_SRC"]
-sys.path = [entry for entry in sys.path if not entry.endswith(".whl")]
-if src not in sys.path:
-    sys.path.insert(0, src)
-sys.argv = ["buildlib", *sys.argv[1:]]
-runpy.run_module("buildlib.__main__", run_name="__main__")
-' "$@"
+BUILDLIB_SRC=$(CDPATH='' cd -- "$here/../src" && pwd)
+export BUILDLIB_SRC
+exec "$here/../bootstrap/buildlib-run" -- -m buildlib "$@"
