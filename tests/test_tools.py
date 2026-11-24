@@ -1035,15 +1035,15 @@ def test_cli_install_default_cache_xdg(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    darwin = "aarch64-apple-darwin"
-    serve_rg(github)
+    native = targets.native_target().triple
+    serve_rg(github, triples=(native,))
     entry = tools.lock_entry("rg", "t9")
     lock_path = write_lock(tmp_path, entry)
     xdg = tmp_path / "xdg"
     monkeypatch.setenv("XDG_CACHE_HOME", str(xdg))
     assert cli.main(["tools", "install", "rg", "--lock", str(lock_path)]) == 0
     out = capsys.readouterr().out
-    pin = entry.asset_for(darwin)
+    pin = entry.asset_for(native)
     assert out == f"{xdg / 'laputa-tools' / 'rg' / pin.sha256}\n"
     assert (xdg / "laputa-tools" / "rg" / pin.sha256 / "rg").is_file()
 
@@ -1054,15 +1054,15 @@ def test_cli_install_default_cache_home(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    darwin = "aarch64-apple-darwin"
-    serve_rg(github)
+    native = targets.native_target().triple
+    serve_rg(github, triples=(native,))
     entry = tools.lock_entry("rg", "t9")
     lock_path = write_lock(tmp_path, entry)
     monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     assert cli.main(["tools", "install", "rg", "--lock", str(lock_path)]) == 0
     out = capsys.readouterr().out
-    pin = entry.asset_for(darwin)
+    pin = entry.asset_for(native)
     expected = tmp_path / "home" / ".cache" / "laputa-tools" / "rg" / pin.sha256
     assert out == f"{expected}\n"
     assert (expected / "rg").is_file()
@@ -1073,13 +1073,12 @@ def test_cli_install_native_target_default(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    darwin = "aarch64-apple-darwin"
-    musl = "x86_64-unknown-linux-musl"
-    serve_rg(github, triples=(darwin, musl))
+    native = targets.native_target().triple
+    other = "x86_64-unknown-linux-musl" if native == "aarch64-apple-darwin" else "aarch64-apple-darwin"
+    serve_rg(github, triples=(native, other))
     entry = tools.lock_entry("rg", "t9")
     lock_path = write_lock(tmp_path, entry)
     cache = tmp_path / "cache"
-    native = targets.native_target().triple
     assert cli.main(["tools", "install", "rg", "--lock", str(lock_path), "--cache", str(cache)]) == 0
     out = capsys.readouterr().out.strip()
     pin = entry.asset_for(native)
