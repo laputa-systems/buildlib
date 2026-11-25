@@ -98,6 +98,7 @@ TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
             ToolSpec("rg", "laputa-systems/rg", "rg", "bare", versioned=False),
             ToolSpec("fd", "laputa-systems/fd", "fd", "bare", versioned=False),
             ToolSpec("jaq", "laputa-systems/jaq", "jaq", "bare", versioned=False),
+            ToolSpec("ast-grep", "laputa-systems/ast-grep", "ast-grep", "bare", versioned=False),
             ToolSpec("git", "laputa-systems/git-build", "git", "std", versioned=True),
             ToolSpec("ssh", "laputa-systems/ssh-build", "ssh", "std", versioned=True),
             ToolSpec("oxish", "laputa-systems/ssh-build", "oxish", "std", versioned=True, bin_dir="bin"),
