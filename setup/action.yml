@@ -17,6 +17,16 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Provide the musl loader on glibc Linux
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        loader="/lib/ld-musl-$(uname -m).so.1"
+        [ -e "$loader" ] && exit 0
+        command -v apt-get >/dev/null || { echo "::error::$loader is missing and apt-get is unavailable"; exit 1; }
+        sudo apt-get install -y --no-install-recommends musl >/dev/null ||
+          { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends musl >/dev/null; }
+        [ -e "$loader" ] || { echo "::error::installing musl did not provide $loader"; exit 1; }
     - name: Compute tool cache key
       id: key
       shell: bash
@@ -33,16 +43,6 @@ runs:
         path: ${{ inputs.cache-dir }}
         key: laputa-tools-${{ hashFiles(inputs.lock) }}-${{ steps.key.outputs.key }}
         restore-keys: laputa-tools-${{ hashFiles(inputs.lock) }}-
-    - name: Provide the musl loader on glibc Linux
-      if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        loader="/lib/ld-musl-$(uname -m).so.1"
-        [ -e "$loader" ] && exit 0
-        command -v apt-get >/dev/null || { echo "::error::$loader is missing and apt-get is unavailable"; exit 1; }
-        sudo apt-get install -y --no-install-recommends musl >/dev/null ||
-          { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends musl >/dev/null; }
-        [ -e "$loader" ] || { echo "::error::installing musl did not provide $loader"; exit 1; }
     - name: Install tools
       shell: bash
       env:
