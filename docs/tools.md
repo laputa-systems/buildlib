@@ -76,6 +76,15 @@ The action computes `cache-key` for the locked pins, restores `cache-dir` throug
 `GITHUB_PATH`. A second run on the same lock restores from cache without
 downloading.
 
+The Linux builds of cpython, node and the ffmpeg products are musl-dynamic. On a
+glibc runner without `/lib/ld-musl-<arch>.so.1`, the action installs the
+distribution `musl` package with `apt-get` before installing tools. That loader
+is enough for cpython. node also needs musl `libstdc++` and `libgcc_s`, and
+ffmpeg-runtime needs musl `libva`, which Ubuntu does not ship; use those on glibc
+runners only inside a musl container until their producers link them statically.
+python-build's macOS cpython targets macOS 27 (`minos 27.0`), so run it on the
+fleet's `xcode-27` runners; on older macOS images it crashes at startup.
+
 ## Docker and scripts
 
 The same module drives non-GitHub paths. `setup/buildlib` wraps
