@@ -142,17 +142,22 @@ if [ "$mode" = uv ]; then
     release
 fi
 printf 'buildlib-run: using %s\n' "$mode" >&2
-acquire "$wheel_sha"
-wheel_dir=$cache/$wheel_sha
-wheel=$wheel_dir/buildlib.whl
-if [ ! -f "$wheel" ] || [ "$(hash "$wheel")" != "$wheel_sha" ]; then
-    download "$wheel_url" '' "$wheel_sha"
-    mkdir -p "$wheel_dir"
-    mv "$tmp/download" "$wheel"
+if [ -n "${BUILDLIB_SRC:-}" ]; then
+    [ -f "$BUILDLIB_SRC/buildlib/__init__.py" ] || fail "BUILDLIB_SRC has no buildlib package: $BUILDLIB_SRC"
+    buildlib_path=$BUILDLIB_SRC
+else
+    acquire "$wheel_sha"
+    wheel_dir=$cache/$wheel_sha
+    buildlib_path=$wheel_dir/buildlib.whl
+    if [ ! -f "$buildlib_path" ] || [ "$(hash "$buildlib_path")" != "$wheel_sha" ]; then
+        download "$wheel_url" '' "$wheel_sha"
+        mkdir -p "$wheel_dir"
+        mv "$tmp/download" "$buildlib_path"
+    fi
+    release
 fi
-release
 rm -rf "$tmp"
 trap - 0 HUP INT TERM
 [ "${1:-}" != -- ] || shift
-PYTHONPATH=$wheel${PYTHONPATH:+:$PYTHONPATH}; export PYTHONPATH
+PYTHONPATH=$buildlib_path${PYTHONPATH:+:$PYTHONPATH}; export PYTHONPATH
 exec "$python" "$@"

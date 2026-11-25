@@ -18,6 +18,7 @@ fetch_input(source, ".work/downloads/Python.tar.xz")
 | [buildlib.macho](src/buildlib/macho.py) | Thin Mach-O metadata and UUID/signature normalization. `signature_status` requires macOS `codesign`. |
 | [buildlib.elf](src/buildlib/elf.py) | 64-bit little-endian ELF metadata, hardening checks, and build-id normalization. |
 | [buildlib.targets](src/buildlib/targets.py) | Supported release triples and their platform, architecture, and loader mappings. |
+| [buildlib.tools](src/buildlib/tools.py) | Pinned installs of owned released tools: `tools.lock.json` validation, release-to-lock entries, and a verified content-addressed cache. `python -m buildlib tools …` is the CLI; see [docs/tools.md](docs/tools.md). |
 | [buildlib.hashing](src/buildlib/hashing.py) | SHA-256 and byte size of files. |
 
 Budget validation checks the schema version, supported target names, and object-shaped limits.

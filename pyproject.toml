@@ -96,6 +96,9 @@ ignore = ["E501", "SIM105", "RET505", "SIM108"]
 # Test helpers build deliberately malformed lock documents and fake servers.
 "tests/**" = ["ANN401"]
 
+# The CLI's stdout is its interface.
+"src/buildlib/__main__.py" = ["T201"]
+
 [tool.uv]
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 

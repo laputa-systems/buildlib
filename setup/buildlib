@@ -1,0 +1,8 @@
+#!/bin/sh
+# BUILDLIB_SRC makes bootstrap/buildlib-run use this checkout instead of downloading the
+# wheel, so CI needs no package registry.
+set -eu
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+BUILDLIB_SRC=$(CDPATH='' cd -- "$here/../src" && pwd)
+export BUILDLIB_SRC
+exec "$here/../bootstrap/buildlib-run" -- -m buildlib "$@"
