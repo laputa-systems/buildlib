@@ -49,7 +49,10 @@ class ToolSpec:
     (`<product>-<version>-<arch>-linux-musl.tar.gz`). `prefix` is "flat" when the
     archive root is the payload or "top" when a single top-level directory wraps
     it. `bin_dir` is the payload-relative directory holding the programs; empty
-    means the payload root itself.
+    means the payload root itself. `flat_fallback` accepts a payload without
+    `bin_dir` and uses its root instead: git-build releases before the
+    relocatable bin/libexec/share layout shipped a flat bundle, and consumer
+    locks still pin them; drop it once no approved lock pins a flat release.
     """
 
     tool: str
@@ -60,6 +63,14 @@ class ToolSpec:
     checksum_name: str = "SHA256SUMS"
     prefix: str = "flat"
     bin_dir: str = ""
+    flat_fallback: bool = False
+
+    def program_dir(self, payload: Path) -> Path:
+        """The directory under `payload` that holds the programs."""
+        candidate = payload / self.bin_dir
+        if self.flat_fallback and not candidate.is_dir():
+            return payload
+        return candidate
 
     def asset_name(self, version: str, triple: str) -> str:
         """The release asset name for `version` on `triple`."""
@@ -99,7 +110,7 @@ TOOLS: Mapping[str, ToolSpec] = MappingProxyType(
             ToolSpec("fd", "laputa-systems/fd", "fd", "bare", versioned=False),
             ToolSpec("jaq", "laputa-systems/jaq", "jaq", "bare", versioned=False),
             ToolSpec("ast-grep", "laputa-systems/ast-grep", "ast-grep", "bare", versioned=False),
-            ToolSpec("git", "laputa-systems/git-build", "git", "std", versioned=True),
+            ToolSpec("git", "laputa-systems/git-build", "git", "std", versioned=True, bin_dir="bin", flat_fallback=True),
             ToolSpec("ssh", "laputa-systems/ssh-build", "ssh", "std", versioned=True),
             ToolSpec("oxish", "laputa-systems/ssh-build", "oxish", "std", versioned=True, bin_dir="bin"),
             ToolSpec("cmake", "laputa-systems/cmake-build", "cmake", "std", versioned=True, prefix="top", bin_dir="bin"),
@@ -490,7 +501,7 @@ def _payload(root: Path, spec: ToolSpec) -> Path:
 
 def _bin_dir(payload: Path, spec: ToolSpec) -> Path:
     """The payload-relative directory holding the programs."""
-    candidate = payload / spec.bin_dir
+    candidate = spec.program_dir(payload)
     if not candidate.is_dir():
         raise ToolError(f"{spec.tool}: archive has no {spec.bin_dir} directory")
     return candidate
@@ -531,7 +542,7 @@ def install(
     pin = entry.asset_for(triple)
     cache = Path(cache_dir) / tool
     final = cache / pin.sha256
-    cached = final / spec.bin_dir
+    cached = spec.program_dir(final)
     if final.is_symlink() or (final.exists() and not final.is_dir()):
         raise ToolError(f"{tool}: cache path {final} is not a directory")
     if final.is_dir():
@@ -557,16 +568,16 @@ def install(
         binaries = _bin_dir(payload, spec)
         _publish_binaries(binaries, spec, triple)
         if final.exists() or final.is_symlink():
-            if final.is_dir() and cached.is_dir():
+            if final.is_dir() and spec.program_dir(final).is_dir():
                 shutil.rmtree(staging)
-                return cached
+                return spec.program_dir(final)
             raise ToolError(f"{tool}: cache path {final} appeared during install")
         os.rename(payload, final)
     except BaseException:
         shutil.rmtree(staging)
         raise
     shutil.rmtree(staging)
-    return cached
+    return spec.program_dir(final)
 
 
 __all__ = [

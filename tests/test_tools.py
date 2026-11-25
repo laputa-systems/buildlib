@@ -1690,3 +1690,36 @@ def test_install_bare_symlink_payload_not_renamed(github: FakeGitHub, tmp_path: 
     assert not (bindir / "rg").exists()
     assert not (bindir / "rg").is_symlink()
     assert (bindir / f"rg-{triple}").is_symlink()
+
+
+def test_install_git_relocatable_prefix_returns_its_bin(github: FakeGitHub, tmp_path: Path) -> None:
+    triple = "aarch64-apple-darwin"
+    archive = tar_bytes(
+        [
+            ("bin/git", b"#!/bin/sh\n"),
+            ("libexec/git-core/git-sh-setup", b"#!/bin/sh\n"),
+            ("share/git-core/templates/description", b"t\n"),
+        ]
+    )
+    serve(github, "git", "t2", triple, archive)
+    path = write_lock(tmp_path, lock_for("git", "t2", triple, archive))
+    bindir = tools.install(path, "git", tmp_path / "cache", target=triple)
+    assert bindir.name == "bin"
+    assert (bindir / "git").is_file()
+    assert (bindir.parent / "libexec/git-core/git-sh-setup").is_file()
+    assert tools.install(path, "git", tmp_path / "cache", target=triple) == bindir
+
+
+def test_install_git_flat_bundle_still_returns_its_root(github: FakeGitHub, tmp_path: Path) -> None:
+    triple = "aarch64-apple-darwin"
+    archive = tar_bytes([("git", b"#!/bin/sh\n"), ("git-sh-setup", b"#!/bin/sh\n")])
+    serve(github, "git", "t1", triple, archive)
+    path = write_lock(tmp_path, lock_for("git", "t1", triple, archive))
+    bindir = tools.install(path, "git", tmp_path / "cache", target=triple)
+    assert (bindir / "git").is_file()
+    assert (bindir / "git-sh-setup").is_file()
+    assert tools.install(path, "git", tmp_path / "cache", target=triple) == bindir
+
+
+def test_flat_fallback_is_limited_to_git() -> None:
+    assert [spec.tool for spec in tools.TOOLS.values() if spec.flat_fallback] == ["git"]
