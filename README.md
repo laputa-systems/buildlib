@@ -31,7 +31,7 @@ in the consuming repository's `pyproject.toml`:
 
 ```toml
 [project]
-dependencies = ["laputa-buildlib==0.3.1"]
+dependencies = ["laputa-buildlib==0.3.2"]
 
 [[tool.uv.index]]
 url = "https://pypi.17166969.xyz/current/simple/"
