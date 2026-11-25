@@ -2,7 +2,7 @@
 
 `buildlib.tools` installs the fleet's own released tools — gluon (meson, ninja,
 gluon-build), the ffmpeg-build products, cmake, llvm, node, cpython, git, ssh and
-oxish, ripgrep, fd, jaq, and mold — from the producer's GitHub release, verified
+oxish, ripgrep, fd, jaq, ast-grep, and mold — from the producer's GitHub release, verified
 against a consumer-pinned lock.
 
 ## The lock
@@ -27,7 +27,7 @@ tag, a product, a version, and one asset per target triple:
 }
 ```
 
-`version` is empty for unversioned products (gluon, rg, fd, jaq). Some producers
+`version` is empty for unversioned products (gluon, rg, fd, jaq, ast-grep). Some producers
 ship several products per release; the tool name selects the product (for
 example `ffmpeg-runtime` versus `ffmpeg-play-sdk`, `llvm` versus `llvm-dev`,
 `ssh` versus `oxish`). mold is the odd layout — `checksums` instead of

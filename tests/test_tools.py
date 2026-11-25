@@ -356,7 +356,7 @@ def test_install_downloads_extracts_and_caches(github: FakeGitHub, tmp_path: Pat
     assert github.timeouts == [120.0] * 3
 
 
-@pytest.mark.parametrize("tool", ["rg", "fd", "jaq"])
+@pytest.mark.parametrize("tool", ["rg", "fd", "jaq", "ast-grep"])
 def test_install_bare_archive_publishes_command_name(
     github: FakeGitHub, tmp_path: Path, tool: str
 ) -> None:
@@ -1112,7 +1112,7 @@ def test_cli_reports_errors_on_stderr_exact(
     assert captured.out == ""
     assert captured.err == (
         "buildlib: unknown tool 'bogus' (known: "
-        "['cmake', 'cpython', 'fd', 'ffmpeg-fixtures', 'ffmpeg-play-sdk', 'ffmpeg-runtime', "
+        "['ast-grep', 'cmake', 'cpython', 'fd', 'ffmpeg-fixtures', 'ffmpeg-play-sdk', 'ffmpeg-runtime', "
         "'ffmpeg-tools', 'git', 'gluon', 'jaq', 'llvm', 'llvm-dev', 'mold', 'node', "
         "'oxish', 'rg', 'ssh'])\n"
     )
