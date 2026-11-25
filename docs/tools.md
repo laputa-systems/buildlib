@@ -82,6 +82,8 @@ distribution `musl` package with `apt-get` before installing tools. That loader
 is enough for cpython. node also needs musl `libstdc++` and `libgcc_s`, and
 ffmpeg-runtime needs musl `libva`, which Ubuntu does not ship; use those on glibc
 runners only inside a musl container until their producers link them statically.
+python-build's macOS cpython targets macOS 27 (`minos 27.0`), so run it on the
+fleet's `xcode-27` runners; on older macOS images it crashes at startup.
 
 ## Docker and scripts
 
