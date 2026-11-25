@@ -27,8 +27,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-26.04-arm
-            tools: gluon rg
-            check: ninja --version && meson --version && rg --version
+            tools: gluon rg cpython
+            check: ninja --version && meson --version && rg --version && python3 -c 'import ssl, sqlite3, ctypes'
+          - os: ubuntu-26.04
+            tools: cpython
+            check: python3 -c 'import ssl, sqlite3, ctypes'
           - os: xcode-27
             tools: gluon rg ffmpeg-runtime
             check: ninja --version && meson --version && rg --version && ffmpeg -version
@@ -54,8 +57,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-26.04-arm
-            tools: gluon rg
-            check: ninja --version && meson --version && rg --version
+            tools: gluon rg cpython
+            check: ninja --version && meson --version && rg --version && python3 -c 'import ssl, sqlite3, ctypes'
+          - os: ubuntu-26.04
+            tools: cpython
+            check: python3 -c 'import ssl, sqlite3, ctypes'
           - os: xcode-27
             tools: gluon rg ffmpeg-runtime
             check: ninja --version && meson --version && rg --version && ffmpeg -version
