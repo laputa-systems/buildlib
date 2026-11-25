@@ -40,13 +40,11 @@ for digest in "$python_sha" "$wheel_sha" "$uv_sha"; do
     case "$digest" in *[!0-9a-f]*) fail 'invalid sha256' ;; esac
 done
 case "$uv_python" in ''|*[!0-9.]*) fail 'invalid uv Python version' ;; esac
-if command -v sha256sum >/dev/null 2>&1; then
-    hash() { sha256sum "$1" | cut -d ' ' -f 1; }
-elif command -v shasum >/dev/null 2>&1; then
-    hash() { shasum -a 256 "$1" | cut -d ' ' -f 1; }
-else
-    fail 'install sha256sum or shasum'
-fi
+command -v sha256sum >/dev/null 2>&1 || fail 'install sha256sum'
+hash() {
+    output=$(sha256sum "$1") || return
+    printf '%s\n' "$output" | cut -d ' ' -f 1
+}
 cache=${BUILDLIB_CACHE:-${XDG_CACHE_HOME:-${HOME:?HOME is required}/.cache}/laputa-buildlib}
 mkdir -p "$cache"
 cache=$(CDPATH='' cd -- "$cache" && pwd)
@@ -74,7 +72,8 @@ download() {
         actual_size=$(wc -c < "$tmp/download" | tr -d ' ')
         [ "$actual_size" = "$2" ] || fail "archive size mismatch: $actual_size != $2"
     fi
-    [ "$(hash "$tmp/download")" = "$3" ] || fail 'sha256 mismatch'
+    actual_sha=$(hash "$tmp/download") || fail 'sha256 mismatch'
+    [ "$actual_sha" = "$3" ] || fail 'sha256 mismatch'
 }
 musl_ok() {
     [ -n "$loader" ] && [ -x "$loader" ] || return 1
@@ -149,7 +148,11 @@ else
     acquire "$wheel_sha"
     wheel_dir=$cache/$wheel_sha
     buildlib_path=$wheel_dir/buildlib.whl
-    if [ ! -f "$buildlib_path" ] || [ "$(hash "$buildlib_path")" != "$wheel_sha" ]; then
+    actual_sha=''
+    if [ -f "$buildlib_path" ]; then
+        actual_sha=$(hash "$buildlib_path") || actual_sha=''
+    fi
+    if [ "$actual_sha" != "$wheel_sha" ]; then
         download "$wheel_url" '' "$wheel_sha"
         mkdir -p "$wheel_dir"
         mv "$tmp/download" "$buildlib_path"
